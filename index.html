@@ -1,453 +1,269 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pl">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Plan i dowozy</title>
-<meta name="theme-color" content="#f6f5f2">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Widzew Łódź — kolejka po kolejce</title>
 <style>
-  :root{
-    --bg:#f6f5f2; --card:#ffffff; --ink:#1d1d1f; --muted:#6b6b70; --line:#e3e1dc;
-    --free:#b45309; --free-bg:#fff7ed; --taken:#f1f2f4;
+  :root {
+    --ground: #dfe3e6;
+    --panel: #fbfaf8;
+    --ink: #1b1a19;
+    --oxblood: #5e1018;
+    --signal: #e01b24;
+    --muted: #7a7f84;
+    --line: #c7ced3;
+    --display: "Oswald", "Arial Narrow", "Haettenschweiler", system-ui, sans-serif;
+    --data: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --label: system-ui, -apple-system, "Segoe UI", sans-serif;
   }
-  *{box-sizing:border-box}
-  [hidden]{display:none !important}
-  html,body{margin:0;background:var(--bg);color:var(--ink);
-    font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:16px;line-height:1.35}
-  button{font:inherit;color:inherit;cursor:pointer}
-  header{position:sticky;top:0;z-index:5;background:var(--bg);padding:12px 16px 8px;border-bottom:1px solid var(--line)}
-  .top{display:flex;align-items:center;justify-content:space-between;gap:8px}
-  h1{font-size:20px;margin:0}
-  .who{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:6px 12px;font-size:14px;
-    display:flex;align-items:center;gap:6px;white-space:nowrap}
-  .dot{width:10px;height:10px;border-radius:50%;display:inline-block;flex:none}
-  .weeknav{display:flex;align-items:center;gap:8px;margin-top:10px}
-  .weeknav .arrow{width:40px;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--card);font-size:22px;line-height:1}
-  #range{flex:1;text-align:center;font-weight:600}
-  #range small{display:block;font-weight:500;color:var(--free);font-size:13px}
-  #range small.ok{color:#15803d}
-  .todaybtn{height:40px;padding:0 12px;border-radius:10px;border:1px solid var(--line);background:var(--card);font-size:14px}
-  .legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:8px;font-size:13px;color:var(--muted)}
-  .legend span{display:flex;align-items:center;gap:5px}
-  .banner{margin-top:8px;background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:6px 10px;font-size:13px}
-
-  .board{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;padding:12px 16px 40px;
-    -webkit-overflow-scrolling:touch;scrollbar-width:none}
-  .board::-webkit-scrollbar{display:none}
-  .day{flex:0 0 86%;scroll-snap-align:center;display:flex;flex-direction:column;gap:10px;min-width:0}
-  .dayhead{display:flex;align-items:baseline;justify-content:space-between;padding:4px 2px}
-  .dayhead b{font-size:17px}
-  .dayhead span{color:var(--muted);font-size:14px}
-  .day.today .dayhead b{color:#1d4ed8}
-  .day.today .dayhead span{background:#1d4ed8;color:#fff;border-radius:999px;padding:1px 8px}
-  .day.past{opacity:.55}
-  .empty{color:var(--muted);font-size:14px;padding:16px;text-align:center;border:1px dashed var(--line);border-radius:12px}
-
-  .ev{background:var(--card);border:1px solid var(--line);border-left:5px solid var(--c,#9ca3af);border-radius:12px;padding:10px 10px 10px 12px}
-  .evhead{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:4px 6px}
-  .time{font-weight:700;font-size:15px}
-  .place{font-size:12px;padding:2px 8px;border-radius:999px;white-space:nowrap}
-  .place.k{background:#e0f2fe;color:#075985}
-  .place.m{background:#fce7f3;color:#9d174d}
-  .title{margin-top:2px;font-size:15px}
-  .kids{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
-  .kid{font-size:12px;padding:2px 8px;border-radius:999px;color:#fff;background:var(--k)}
-
-  .slots{display:flex;flex-direction:column;gap:6px;margin-top:10px}
-  .slot{width:100%;min-height:48px;border-radius:10px;padding:6px 10px;text-align:left;border:1.5px dashed var(--free);background:var(--free-bg);
-    display:flex;flex-direction:column;gap:2px}
-  .slot.full{border:1.5px solid transparent;background:var(--taken)}
-  .slot.mine{border-color:var(--me)}
-  .slot .lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}
-  .slot .row{font-size:14px;display:flex;flex-wrap:wrap;align-items:center;gap:4px}
-  .slot .row b{font-weight:600}
-  .slot .row.missing{color:var(--free);font-weight:600}
-  .slot .row .dot{width:8px;height:8px}
-  .slot .cta{font-size:14px;font-weight:600;color:var(--free)}
-  .slot:disabled{cursor:default}
-  .cal{display:inline-flex;align-items:center;gap:6px;min-height:34px;padding:2px 4px;font-size:13px;color:#1d4ed8;text-decoration:none}
-  .cal svg{width:16px;height:16px;flex:none}
-  .past .slot{border-color:var(--line);background:transparent}
-  .past .slot .row.missing,.past .slot .cta{color:var(--muted)}
-
-  @media (min-width:960px){
-    .board{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));overflow:visible;gap:10px}
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 28px 20px 60px;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--label);
+    /* watek osnowy: pionowe nitki w tle, gesciej niz siatka tabeli */
+    background-image: repeating-linear-gradient(90deg,
+      rgba(94,16,24,.045) 0 1px, transparent 1px 9px);
+  }
+  header { max-width: 1240px; margin: 0 auto 22px; }
+  h1 {
+    font-family: var(--display); font-weight: 600;
+    font-size: clamp(28px, 5vw, 46px);
+    letter-spacing: -.01em; text-transform: uppercase;
+    margin: 0; line-height: .95; color: var(--oxblood);
+  }
+  h1 em {
+    font-style: normal; color: var(--signal);
+    display: block; font-size: .42em; letter-spacing: .14em;
+    margin-top: 8px; color: var(--muted); font-family: var(--label);
+    font-weight: 500; text-transform: none;
   }
 
-  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1d1d1f;color:#fff;padding:10px 16px;
-    border-radius:10px;font-size:14px;z-index:40;max-width:calc(100% - 32px);text-align:center}
-  .modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center;z-index:30}
-  .sheet{background:var(--card);width:100%;max-width:480px;border-radius:16px 16px 0 0;padding:18px 16px 24px;max-height:90vh;overflow:auto}
-  @media (min-width:600px){.modal{align-items:center}.sheet{border-radius:16px}}
-  .sheet h2{margin:0 0 4px;font-size:18px}
-  .sheet p{margin:0 0 12px;color:var(--muted);font-size:14px}
-  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-  .pbtn{min-height:52px;border:1px solid var(--line);border-radius:12px;background:var(--bg);display:flex;align-items:center;gap:8px;padding:0 12px;text-align:left}
-  .klist{display:flex;flex-direction:column;gap:8px}
-  .kopt{display:flex;align-items:center;gap:12px;min-height:56px;padding:0 14px;border:1.5px solid var(--line);border-radius:12px;background:var(--bg);font-size:16px}
-  .kopt input{width:24px;height:24px;accent-color:#1d1d1f;flex:none}
-  .kopt .who2{margin-left:auto;font-size:13px;color:var(--muted)}
-  .kopt.on{border-color:#1d1d1f;background:#fff}
-  .kopt.other{opacity:.6}
-  .sheet .actions{display:flex;gap:8px;margin-top:14px}
-  .sheet .actions button{flex:1;min-height:48px;border-radius:12px;border:1px solid var(--line);background:var(--bg)}
-  .sheet .actions .primary{background:#1d1d1f;color:#fff;border-color:#1d1d1f}
-  .linkbtn{background:none;border:0;color:#1d4ed8;font-size:14px;padding:4px 0;margin-bottom:8px}
+  /* pasek porownania srednich */
+  .compare {
+    max-width: 1240px; margin: 0 auto 26px;
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+    gap: 1px; background: var(--line);
+    border: 1px solid var(--line);
+  }
+  .metric { background: var(--panel); padding: 11px 13px 12px; }
+  .metric b {
+    display: block; font-size: 10px; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--muted); font-weight: 600;
+  }
+  .metric .now {
+    font-family: var(--data); font-size: 25px; font-weight: 600;
+    color: var(--signal); line-height: 1.25;
+  }
+  .metric .was { font-family: var(--data); font-size: 12px; color: var(--muted); }
+  .metric .delta { font-family: var(--data); font-size: 12px; margin-left: 6px; }
+  .up { color: #1c6b3a; } .down { color: #9a2b2b; } .flat { color: var(--muted); }
+
+  .controls { max-width: 1240px; margin: 0 auto 14px; }
+  button {
+    font-family: var(--label); font-size: 13px; font-weight: 500;
+    padding: 8px 14px; cursor: pointer;
+    background: var(--panel); color: var(--ink);
+    border: 1px solid var(--line); border-radius: 0;
+  }
+  button[aria-pressed="true"] { background: var(--oxblood); color: #fff; border-color: var(--oxblood); }
+  button:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+  .hint { font-size: 12px; color: var(--muted); margin: 8px 0 0; }
+
+  .seasons {
+    max-width: 1240px; margin: 0 auto;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 18px; align-items: start;
+  }
+  section {
+    background: var(--panel); border: 1px solid var(--line);
+    min-width: 0;
+  }
+  section > h2 {
+    font-family: var(--display); text-transform: uppercase;
+    font-size: 15px; letter-spacing: .12em; margin: 0;
+    padding: 11px 14px; background: var(--oxblood); color: #fff; font-weight: 500;
+  }
+  section > h2 span { float: right; opacity: .72; font-family: var(--data); letter-spacing: 0; }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-family: var(--data); font-size: 12.5px; }
+  thead th {
+    font-family: var(--label); font-size: 9.5px; font-weight: 700;
+    letter-spacing: .07em; text-transform: uppercase; color: var(--muted);
+    text-align: right; padding: 9px 6px 7px; border-bottom: 1px solid var(--line);
+    white-space: nowrap; position: sticky; top: 0; background: var(--panel);
+  }
+  thead th.match, thead th.gutter { text-align: left; }
+  td { padding: 6px; border-bottom: 1px solid #eceae6; text-align: right; white-space: nowrap; }
+  tbody tr:hover td { background: #f2efe9; }
+  .gutter { width: 16px; padding-left: 12px; }
+  /* wstazka formy: splot sezonu widoczny przy przegladaniu w dol */
+  .tick { display: block; width: 7px; height: 15px; border: 1.5px solid var(--muted); }
+  .tick.W { background: var(--signal); border-color: var(--signal); }
+  .tick.R { background: transparent; border-color: var(--oxblood); }
+  .tick.P { background: #d7d3cd; border-color: #c2bdb6; }
+  .k { color: var(--muted); width: 26px; }
+  .match { text-align: left; font-family: var(--label); font-size: 12.5px; white-space: normal; }
+  .match .w { font-weight: 700; color: var(--oxblood); }
+  .score { font-weight: 700; }
+  .xg { position: relative; }
+  /* slad xG pod liczba - dane, nie ozdoba */
+  .xg i {
+    position: absolute; left: 4px; right: 4px; bottom: 2px; height: 2px;
+    background: var(--signal); opacity: .3; transform-origin: left;
+  }
+  .none { color: #c3bfb9; }
+  .empty td { height: 28px; background: repeating-linear-gradient(135deg,
+      #f6f4f0 0 4px, var(--panel) 4px 8px); }
+  tfoot td {
+    font-weight: 700; border-top: 2px solid var(--oxblood);
+    border-bottom: none; padding-top: 9px; padding-bottom: 11px;
+  }
+  tfoot .match { font-family: var(--label); font-size: 10px; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--muted); font-weight: 700; }
+  @media (max-width: 860px) {
+    .seasons { grid-template-columns: 1fr; }
+    thead th { position: static; }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    tbody tr { transition: background .12s ease; }
+  }
 </style>
 </head>
 <body>
 <header>
-  <div class="top">
-    <h1>Plan i dowozy</h1>
-    <button id="who" class="who"></button>
-  </div>
-  <div class="weeknav">
-    <button class="arrow" id="prev" aria-label="Poprzedni tydzień">‹</button>
-    <div id="range"></div>
-    <button class="arrow" id="next" aria-label="Następny tydzień">›</button>
-    <button class="todaybtn" id="today">Dziś</button>
-  </div>
-  <div id="legend" class="legend"></div>
-  <div id="banner" class="banner" hidden></div>
+  <h1>Widzew Łódź<em>Ekstraklasa · kolejka po kolejce · dane Flashscore</em></h1>
 </header>
 
-<main id="board" class="board"></main>
+<div class="compare" id="compare"></div>
 
-<div id="toast" class="toast" hidden></div>
-
-<div id="picker" class="modal" hidden>
-  <div class="sheet">
-    <h2>Kim jesteś?</h2>
-    <p>Wybierz raz – telefon to zapamięta.</p>
-    <div id="plist" class="grid2"></div>
-  </div>
+<div class="controls">
+  <button id="mode" aria-pressed="false">Zestaw kolejka do kolejki</button>
+  <p class="hint" id="hint">Najnowsza kolejka u góry, każdy sezon niezależnie.</p>
 </div>
 
-<div id="assign" class="modal" hidden>
-  <div class="sheet">
-    <h2 id="atitle"></h2>
-    <p id="adesc"></p>
-    <button id="aall" class="linkbtn">Zaznacz wszystkie wolne</button>
-    <div id="aklist" class="klist"></div>
-    <div class="actions">
-      <button id="acancel">Anuluj</button>
-      <button id="asave" class="primary">Zapisz</button>
-    </div>
-  </div>
-</div>
+<div class="seasons" id="seasons"></div>
 
 <script>
-/* =========================================================
-   KONFIGURACJA – tu zmieniasz plan
-   ========================================================= */
-
-// Adres aplikacji Google Apps Script (kończy się na /exec).
-// Puste = tryb testowy: zapisy tylko na tym urządzeniu.
-const SCRIPT_URL = '';
-
-const KIDS = {
-  nadia:  { name: 'Nadia',  color: '#E4572E' },
-  alicja: { name: 'Alicja', color: '#8B5CF6' },
-  antek:  { name: 'Antek',  color: '#2E86AB' },
-  ignas:  { name: 'Ignaś',  color: '#2F9E55' },
-};
-
-const PARENTS = [
-  ['Mama Nadii', 'nadia'],  ['Tata Nadii', 'nadia'],
-  ['Mama Alicji', 'alicja'], ['Tata Alicji', 'alicja'],
-  ['Mama Antka', 'antek'],  ['Tata Antka', 'antek'],
-  ['Mama Ignasia', 'ignas'], ['Tata Ignasia', 'ignas'],
+const DANE = {"druzyna": "Widzew", "metryki": ["xg", "shots", "sot", "bc", "pass_pct", "poss"], "sezony": {"2025/26": {"mecze": [{"kolejka": 34, "data": "2026-05-23", "rozgrywki": "Ekstraklasa", "gospodarz": "Widzew Łódź", "gosc": "Piast Gliwice", "wynik": "2:1", "wynik_ht": null, "xg_home": 0.67, "shots_home": 10.0, "sot_home": 2.0, "bc_home": 3.0, "pass_pct_home": 65.0, "poss_home": 38.0, "xg_away": 0.46, "shots_away": 9.0, "sot_away": 3.0, "bc_away": 1.0, "pass_pct_away": 79.0, "poss_away": 62.0, "venue": "H", "widzew_xg": 0.67, "rywal_xg": 0.46, "widzew_shots": 10.0, "rywal_shots": 9.0, "widzew_sot": 2.0, "rywal_sot": 3.0, "widzew_bc": 3.0, "rywal_bc": 1.0, "widzew_pass_pct": 65.0, "rywal_pass_pct": 79.0, "widzew_poss": 38.0, "rywal_poss": 62.0, "rywal_nazwa": "Piast Gliwice", "widzew_gole": 2, "rywal_gole": 1, "rezultat": "W", "pozycja": 14, "bilans_do": "12-6-16", "punkty_do": 42}, {"kolejka": 33, "data": "2026-05-15", "rozgrywki": "Ekstraklasa", "gospodarz": "Korona Kielce", "gosc": "Widzew Łódź", "wynik": "1:0", "wynik_ht": null, "xg_home": 0.8, "shots_home": 11.0, "sot_home": 2.0, "bc_home": 1.0, "pass_pct_home": 76.0, "poss_home": 43.0, "xg_away": 0.53, "shots_away": 7.0, "sot_away": 3.0, "bc_away": 1.0, "pass_pct_away": 80.0, "poss_away": 57.0, "venue": "A", "widzew_xg": 0.53, "rywal_xg": 0.8, "widzew_shots": 7.0, "rywal_shots": 11.0, "widzew_sot": 3.0, "rywal_sot": 2.0, "widzew_bc": 1.0, "rywal_bc": 1.0, "widzew_pass_pct": 80.0, "rywal_pass_pct": 76.0, "widzew_poss": 57.0, "rywal_poss": 43.0, "rywal_nazwa": "Korona Kielce", "widzew_gole": 0, "rywal_gole": 1, "rezultat": "P", "pozycja": 15, "bilans_do": "11-6-16", "punkty_do": 39}, {"kolejka": 32, "data": "2026-05-09", "rozgrywki": "Ekstraklasa", "gospodarz": "Widzew Łódź", "gosc": "Lechia Gdańsk", "wynik": "3:1", "wynik_ht": null, "xg_home": 1.85, "shots_home": 18.0, "sot_home": 4.0, "bc_home": 3.0, "pass_pct_home": 80.0, "poss_home": 52.0, "xg_away": 0.99, "shots_away": 11.0, "sot_away": 2.0, "bc_away": 0.0, "pass_pct_away": 76.0, "poss_away": 48.0, "venue": "H", "widzew_xg": 1.85, "rywal_xg": 0.99, "widzew_shots": 18.0, "rywal_shots": 11.0, "widzew_sot": 4.0, "rywal_sot": 2.0, "widzew_bc": 3.0, "rywal_bc": 0.0, "widzew_pass_pct": 80.0, "rywal_pass_pct": 76.0, "widzew_poss": 52.0, "rywal_poss": 48.0, "rywal_nazwa": "Lechia Gdańsk", "widzew_gole": 3, "rywal_gole": 1, "rezultat": "W", "pozycja": 14, "bilans_do": "11-6-15", "punkty_do": 39}, {"kolejka": 31, "data": "2026-05-01", "rozgrywki": "Ekstraklasa", "gospodarz": "Legia Warszawa", "gosc": "Widzew Łódź", "wynik": "1:0", "wynik_ht": null, "xg_home": 1.66, "shots_home": 15.0, "sot_home": 4.0, "bc_home": 3.0, "pass_pct_home": 83.0, "poss_home": 62.0, "xg_away": 0.3, "shots_away": 6.0, "sot_away": 1.0, "bc_away": 0.0, "pass_pct_away": 75.0, "poss_away": 38.0, "venue": "A", "widzew_xg": 0.3, "rywal_xg": 1.66, "widzew_shots": 6.0, "rywal_shots": 15.0, "widzew_sot": 1.0, "rywal_sot": 4.0, "widzew_bc": 0.0, "rywal_bc": 3.0, "widzew_pass_pct": 75.0, "rywal_pass_pct": 83.0, "widzew_poss": 38.0, "rywal_poss": 62.0, "rywal_nazwa": "Legia Warszawa", "widzew_gole": 0, "rywal_gole": 1, "rezultat": "P", "pozycja": 16, "bilans_do": "10-6-15", "punkty_do": 36}, {"kolejka": 30, "data": "2026-04-26", "rozgrywki": "Ekstraklasa", "gospodarz": "Widzew Łódź", "gosc": "Motor Lublin", "wynik": "2:0", "wynik_ht": null, "xg_home": 1.18, "shots_home": 14.0, "sot_home": 5.0, "bc_home": 2.0, "pass_pct_home": 70.0, "poss_home": 37.0, "xg_away": 0.67, "shots_away": 9.0, "sot_away": 1.0, "bc_away": 1.0, "pass_pct_away": 82.0, "poss_away": 63.0, "venue": "H", "widzew_xg": 1.18, "rywal_xg": 0.67, "widzew_shots": 14.0, "rywal_shots": 9.0, "widzew_sot": 5.0, "rywal_sot": 1.0, "widzew_bc": 2.0, "rywal_bc": 1.0, "widzew_pass_pct": 70.0, "rywal_pass_pct": 82.0, "widzew_poss": 37.0, "rywal_poss": 63.0, "rywal_nazwa": "Motor Lublin", "widzew_gole": 2, "rywal_gole": 0, "rezultat": "W", "pozycja": 16, "bilans_do": "10-6-14", "punkty_do": 36}, {"kolejka": 29, "data": "2026-04-18", "rozgrywki": "Ekstraklasa", "gospodarz": "Radomiak Radom", "gosc": "Widzew Łódź", "wynik": "2:1", "wynik_ht": null, "xg_home": 2.33, "shots_home": 20.0, "sot_home": 5.0, "bc_home": 2.0, "pass_pct_home": 77.0, "poss_home": 51.0, "xg_away": 0.24, "shots_away": 7.0, "sot_away": 2.0, "bc_away": 0.0, "pass_pct_away": 70.0, "poss_away": 49.0, "venue": "A", "widzew_xg": 0.24, "rywal_xg": 2.33, "widzew_shots": 7.0, "rywal_shots": 20.0, "widzew_sot": 2.0, "rywal_sot": 5.0, "widzew_bc": 0.0, "rywal_bc": 2.0, "widzew_pass_pct": 70.0, "rywal_pass_pct": 77.0, "widzew_poss": 49.0, "rywal_poss": 51.0, "rywal_nazwa": "Radomiak Radom", "widzew_gole": 1, "rywal_gole": 2, "rezultat": "P", "pozycja": 17, "bilans_do": "9-6-14", "punkty_do": 33}, {"kolejka": 28, "data": "2026-04-11", "rozgrywki": "Ekstraklasa", "gospodarz": "Widzew Łódź", "gosc": "Bruk-Bet T.", "wynik": "1:0", "wynik_ht": null, "xg_home": 2.07, "shots_home": 20.0, "sot_home": 8.0, "bc_home": 6.0, "pass_pct_home": 78.0, "poss_home": 56.0, "xg_away": 0.8, "shots_away": 9.0, "sot_away": 2.0, "bc_away": 1.0, "pass_pct_away": 70.0, "poss_away": 44.0, "venue": "H", "widzew_xg": 2.07, "rywal_xg": 0.8, "widzew_shots": 20.0, "rywal_shots": 9.0, "widzew_sot": 8.0, "rywal_sot": 2.0, "widzew_bc": 6.0, "rywal_bc": 1.0, "widzew_pass_pct": 78.0, "rywal_pass_pct": 70.0, "widzew_poss": 56.0, "rywal_poss": 44.0, "rywal_nazwa": "Bruk-Bet T.", "widzew_gole": 1, "rywal_gole": 0, "rezultat": "W", "pozycja": 17, "bilans_do": "9-6-13", "punkty_do": 33}, {"kolejka": 27, "data": "2026-04-04", "rozgrywki": "Ekstraklasa", "gospodarz": "Raków Częstochowa", "gosc": "Widzew Łódź", "wynik": "1:1", "wynik_ht": null, "xg_home": 1.22, "shots_home": 7.0, "sot_home": 2.0, "bc_home": 3.0, "pass_pct_home": 67.0, "poss_home": 39.0, "xg_away": 1.07, "shots_away": 16.0, "sot_away": 2.0, "bc_away": 1.0, "pass_pct_away": 82.0, "poss_away": 61.0, "venue": "A", "widzew_xg": 1.07, "rywal_xg": 1.22, "widzew_shots": 16.0, "rywal_shots": 7.0, "widzew_sot": 2.0, "rywal_sot": 2.0, "widzew_bc": 1.0, "rywal_bc": 3.0, "widzew_pass_pct": 82.0, "rywal_pass_pct": 67.0, "widzew_poss": 61.0, "rywal_poss": 39.0, "rywal_nazwa": "Raków Częstochowa", "widzew_gole": 1, "rywal_gole": 1, "rezultat": "R", "pozycja": 17, "bilans_do": "8-6-13", "punkty_do": 30}, {"kolejka": 26, "data": "2026-03-22", "rozgrywki": "Ekstraklasa", "gospodarz": "Widzew Łódź", "gosc": "Górnik Zabrze", "wynik": "0:0", "wynik_ht": null, "xg_home": 0.3, "shots_home": 5.0, "sot_home": 0.0, "bc_home": 0.0, "pass_pct_home": 69.0, "poss_home": 46.0, "xg_away": 0.38, "shots_away": 8.0, "sot_away": 2.0, "bc_away": 0.0, "pass_pct_away": 77.0, "poss_away": 54.0, "venue": "H", "widzew_xg": 0.3, "rywal_xg": 0.38, "widzew_shots": 5.0, "rywal_shots": 8.0, "widzew_sot": 0.0, "rywal_sot": 2.0, "widzew_bc": 0.0, "rywal_bc": 0.0, "widzew_pass_pct": 69.0, "rywal_pass_pct": 77.0, "widzew_poss": 46.0, "rywal_poss": 54.0, "rywal_nazwa": "Górnik Zabrze", "widzew_gole": 0, "rywal_gole": 0, "rezultat": "R", "pozycja": 17, "bilans_do": "8-5-13", "punkty_do": 29}, {"kolejka": 25, "data": "2026-03-15", "rozgrywki": "Ekstraklasa", "gospodarz": "Arka Gdynia", "gosc": "Widzew Łódź", "wynik": "0:0", "wynik_ht": null, "xg_home": 0.6, "shots_home": 10.0, "sot_home": 1.0, "bc_home": 1.0, "pass_pct_home": 76.0, "poss_home": 49.0, "xg_away": 0.66, "shots_away": 10.0, "sot_away": 1.0, "bc_away": 0.0, "pass_pct_away": 71.0, "poss_away": 51.0, "venue": "A", "widzew_xg": 0.66, "rywal_xg": 0.6, "widzew_shots": 10.0, "rywal_shots": 10.0, "widzew_sot": 1.0, "rywal_sot": 1.0, "widzew_bc": 0.0, "rywal_bc": 1.0, "widzew_pass_pct": 71.0, "rywal_pass_pct": 76.0, "widzew_poss": 51.0, "rywal_poss": 49.0, "rywal_nazwa": "Arka Gdynia", "widzew_gole": 0, "rywal_gole": 0, "rezultat": "R", "pozycja": 17, "bilans_do": "8-4-13", "punkty_do": 28}, {"kolejka": 24, "data": "2026-03-07", "rozgrywki": "Ekstraklasa", "gospodarz": "Widzew Łódź", "gosc": "Lech Poznań", "wynik": "2:1", "wynik_ht": null, "xg_home": 0.68, "shots_home": 11.0, "sot_home": 4.0, "bc_home": 1.0, "pass_pct_home": 68.0, "poss_home": 29.0, "xg_away": 0.85, "shots_away": 12.0, "sot_away": 6.0, "bc_away": 3.0, "pass_pct_away": 87.0, "poss_away": 71.0, "venue": "H", "widzew_xg": 0.68, "rywal_xg": 0.85, "widzew_shots": 11.0, "rywal_shots": 12.0, "widzew_sot": 4.0, "rywal_sot": 6.0, "widzew_bc": 1.0, "rywal_bc": 3.0, "widzew_pass_pct": 68.0, "rywal_pass_pct": 87.0, "widzew_poss": 29.0, "rywal_poss": 71.0, "rywal_nazwa": "Lech Poznań", "widzew_gole": 2, "rywal_gole": 1, "rezultat": "W", "pozycja": 17, "bilans_do": "8-3-13", "punkty_do": 27}, {"kolejka": 23, "data": "2026-02-28", "rozgrywki": "Ekstraklasa", "gospodarz": "Pogoń Szczecin", "gosc": "Widzew Łódź", "wynik": "1:0", "wynik_ht": null, "xg_home": 0.7, "shots_home": 9.0, "sot_home": 3.0, "bc_home": 2.0, "pass_pct_home": 74.0, "poss_home": 40.0, "xg_away": 0.84, "shots_away": 8.0, "sot_away": 2.0, "bc_away": 3.0, "pass_pct_away": 83.0, "poss_away": 60.0, "venue": "A", "widzew_xg": 0.84, "rywal_xg": 0.7, "widzew_shots": 8.0, "rywal_shots": 9.0, "widzew_sot": 2.0, "rywal_sot": 3.0, "widzew_bc": 3.0, "rywal_bc": 2.0, "widzew_pass_pct": 83.0, "rywal_pass_pct": 74.0, "widzew_poss": 60.0, "rywal_poss": 40.0, "rywal_nazwa": "Pogoń Szczecin", "widzew_gole": 0, "rywal_gole": 1, "rezultat": "P", "pozycja": 17, "bilans_do": "7-3-13", "punkty_do": 24}, {"kolejka": 22, "data": "2026-02-20", "rozgrywki": "Ekstraklasa", "gospodarz": "Widzew Łódź", "gosc": "Cracovia", "wynik": "0:0", "wynik_ht": null, "xg_home": 0.97, "shots_home": 14.0, "sot_home": 4.0, "bc_home": 1.0, "pass_pct_home": 71.0, "poss_home": 41.0, "xg_away": 0.81, "shots_away": 12.0, "sot_away": 1.0, "bc_away": 1.0, "pass_pct_away": 77.0, "poss_away": 59.0, "venue": "H", "widzew_xg": 0.97, "rywal_xg": 0.81, "widzew_shots": 14.0, "rywal_shots": 12.0, "widzew_sot": 4.0, "rywal_sot": 1.0, "widzew_bc": 1.0, "rywal_bc": 1.0, "widzew_pass_pct": 71.0, "rywal_pass_pct": 77.0, "widzew_poss": 41.0, "rywal_poss": 59.0, "rywal_nazwa": "Cracovia", "widzew_gole": 0, "rywal_gole": 0, "rezultat": "R", "pozycja": 17, "bilans_do": "7-3-12", "punkty_do": 24}, {"kolejka": 21, "data": "2026-02-14", "rozgrywki": "Ekstraklasa", "gospodarz": "Wisła Płock", "gosc": "Widzew Łódź", "wynik": "0:2", "wynik_ht": null, "xg_home": 0.97, "shots_home": 10.0, "sot_home": 1.0, "bc_home": 1.0, "pass_pct_home": 79.0, "poss_home": 49.0, "xg_away": 2.29, "shots_away": 15.0, "sot_away": 4.0, "bc_away": 4.0, "pass_pct_away": 82.0, "poss_away": 51.0, "venue": "A", "widzew_xg": 2.29, "rywal_xg": 0.97, "widzew_shots": 15.0, "rywal_shots": 10.0, "widzew_sot": 4.0, "rywal_sot": 1.0, "widzew_bc": 4.0, "rywal_bc": 1.0, "widzew_pass_pct": 82.0, "rywal_pass_pct": 79.0, "widzew_poss": 51.0, "rywal_poss": 49.0, "rywal_nazwa": "Wisła Płock", "widzew_gole": 2, "rywal_gole": 0, "rezultat": "W", "pozycja": 15, "bilans_do": "7-2-12", "punkty_do": 23}, {"kolejka": 20, "data": "2026-02-08", "rozgrywki": "Ekstraklasa", "gospodarz": "GKS Katowice", "gosc": "Widzew Łódź", "wynik": "1:0", "wynik_ht": null, "xg_home": 0.57, "shots_home": 8.0, "sot_home": 4.0, "bc_home": 1.0, "pass_pct_home": 58.0, "poss_home": 29.0, "xg_away": 0.37, "shots_away": 9.0, "sot_away": 1.0, "bc_away": 1.0, "pass_pct_away": 79.0, "poss_away": 71.0, "venue": "A", "widzew_xg": 0.37, "rywal_xg": 0.57, "widzew_shots": 9.0, "rywal_shots": 8.0, "widzew_sot": 1.0, "rywal_sot": 4.0, "widzew_bc": 1.0, "rywal_bc": 1.0, "widzew_pass_pct": 79.0, "rywal_pass_pct": 58.0, "widzew_poss": 71.0, "rywal_poss": 29.0, "rywal_nazwa": "GKS Katowice", "widzew_gole": 0, "rywal_gole": 1, "rezultat": "P", "pozycja": 17, "bilans_do": "6-2-12", "punkty_do": 20}, {"kolejka": 19, "data": "2026-01-31", "rozgrywki": "Ekstraklasa", "gospodarz": "Widzew Łódź", "gosc": "Jagiellonia Białystok", "wynik": "1:3", "wynik_ht": null, "xg_home": 1.69, "shots_home": 17.0, "sot_home": 3.0, "bc_home": 2.0, "pass_pct_home": 74.0, "poss_home": 54.0, "xg_away": 1.23, "shots_away": 5.0, "sot_away": 3.0, "bc_away": 2.0, "pass_pct_away": 69.0, "poss_away": 46.0, "venue": "H", "widzew_xg": 1.69, "rywal_xg": 1.23, "widzew_shots": 17.0, "rywal_shots": 5.0, "widzew_sot": 3.0, "rywal_sot": 3.0, "widzew_bc": 2.0, "rywal_bc": 2.0, "widzew_pass_pct": 74.0, "rywal_pass_pct": 69.0, "widzew_poss": 54.0, "rywal_poss": 46.0, "rywal_nazwa": "Jagiellonia Białystok", "widzew_gole": 1, "rywal_gole": 3, "rezultat": "P", "pozycja": 16, "bilans_do": "6-2-11", "punkty_do": 20}, {"kolejka": 18, "data": "2025-12-06", "rozgrywki": "Ekstraklasa", "gospodarz": "Zagłębie Lubin", "gosc": "Widzew Łódź", "wynik": "2:1", "wynik_ht": null, "xg_home": 0.88, "shots_home": 15.0, "sot_home": 6.0, "bc_home": 0.0, "pass_pct_home": 74.0, "poss_home": 50.0, "xg_away": 0.98, "shots_away": 14.0, "sot_away": 6.0, "bc_away": 2.0, "pass_pct_away": 81.0, "poss_away": 50.0, "venue": "A", "widzew_xg": 0.98, "rywal_xg": 0.88, "widzew_shots": 14.0, "rywal_shots": 15.0, "widzew_sot": 6.0, "rywal_sot": 6.0, "widzew_bc": 2.0, "rywal_bc": 0.0, "widzew_pass_pct": 81.0, "rywal_pass_pct": 74.0, "widzew_poss": 50.0, "rywal_poss": 50.0, "rywal_nazwa": "Zagłębie Lubin", "widzew_gole": 1, "rywal_gole": 2, "rezultat": "P", "pozycja": 13, "bilans_do": "6-2-10", "punkty_do": 20}, {"kolejka": 17, "data": "2025-11-28", "rozgrywki": "Ekstraklasa", "gospodarz": "Piast Gliwice", "gosc": "Widzew Łódź", "wynik": "0:2", "wynik_ht": null, "xg_home": 1.18, "shots_home": 25.0, "sot_home": 3.0, "bc_home": 1.0, "pass_pct_home": 82.0, "poss_home": 68.0, "xg_away": 2.61, "shots_away": 10.0, "sot_away": 4.0, "bc_away": 4.0, "pass_pct_away": 69.0, "poss_away": 32.0, "venue": "A", "widzew_xg": 2.61, "rywal_xg": 1.18, "widzew_shots": 10.0, "rywal_shots": 25.0, "widzew_sot": 4.0, "rywal_sot": 3.0, "widzew_bc": 4.0, "rywal_bc": 1.0, "widzew_pass_pct": 69.0, "rywal_pass_pct": 82.0, "widzew_poss": 32.0, "rywal_poss": 68.0, "rywal_nazwa": "Piast Gliwice", "widzew_gole": 2, "rywal_gole": 0, "rezultat": "W", "pozycja": 10, "bilans_do": "6-2-9", "punkty_do": 20}, {"kolejka": 16, "data": "2025-11-23", "rozgrywki": "Ekstraklasa", "gospodarz": "Widzew Łódź", "gosc": "Korona Kielce", "wynik": "1:3", "wynik_ht": null, "xg_home": 1.45, "shots_home": 23.0, "sot_home": 5.0, "bc_home": 2.0, "pass_pct_home": 81.0, "poss_home": 56.0, "xg_away": 2.2, "shots_away": 13.0, "sot_away": 5.0, "bc_away": 3.0, "pass_pct_away": 76.0, "poss_away": 44.0, "venue": "H", "widzew_xg": 1.45, "rywal_xg": 2.2, "widzew_shots": 23.0, "rywal_shots": 13.0, "widzew_sot": 5.0, "rywal_sot": 5.0, "widzew_bc": 2.0, "rywal_bc": 3.0, "widzew_pass_pct": 81.0, "rywal_pass_pct": 76.0, "widzew_poss": 56.0, "rywal_poss": 44.0, "rywal_nazwa": "Korona Kielce", "widzew_gole": 1, "rywal_gole": 3, "rezultat": "P", "pozycja": 14, "bilans_do": "5-2-9", "punkty_do": 17}, {"kolejka": 15, "data": "2025-11-08", "rozgrywki": "Ekstraklasa", "gospodarz": "Lechia Gdańsk", "gosc": "Widzew Łódź", "wynik": "2:1", "wynik_ht": null, "xg_home": 1.16, "shots_home": 14.0, "sot_home": 3.0, "bc_home": 4.0, "pass_pct_home": 84.0, "poss_home": 52.0, "xg_away": 1.45, "shots_away": 9.0, "sot_away": 3.0, "bc_away": 2.0, "pass_pct_away": 79.0, "poss_away": 48.0, "venue": "A", "widzew_xg": 1.45, "rywal_xg": 1.16, "widzew_shots": 9.0, "rywal_shots": 14.0, "widzew_sot": 3.0, "rywal_sot": 3.0, "widzew_bc": 2.0, "rywal_bc": 4.0, "widzew_pass_pct": 79.0, "rywal_pass_pct": 84.0, "widzew_poss": 48.0, "rywal_poss": 52.0, "rywal_nazwa": "Lechia Gdańsk", "widzew_gole": 1, "rywal_gole": 2, "rezultat": "P", "pozycja": 12, "bilans_do": "5-2-8", "punkty_do": 17}, {"kolejka": 14, "data": "2025-11-02", "rozgrywki": "Ekstraklasa", "gospodarz": "Widzew Łódź", "gosc": "Legia Warszawa", "wynik": "1:1", "wynik_ht": null, "xg_home": 1.4, "shots_home": 10.0, "sot_home": 3.0, "bc_home": 2.0, "pass_pct_home": 83.0, "poss_home": 42.0, "xg_away": 1.74, "shots_away": 20.0, "sot_away": 3.0, "bc_away": 3.0, "pass_pct_away": 88.0, "poss_away": 58.0, "venue": "H", "widzew_xg": 1.4, "rywal_xg": 1.74, "widzew_shots": 10.0, "rywal_shots": 20.0, "widzew_sot": 3.0, "rywal_sot": 3.0, "widzew_bc": 2.0, "rywal_bc": 3.0, "widzew_pass_pct": 83.0, "rywal_pass_pct": 88.0, "widzew_poss": 42.0, "rywal_poss": 58.0, "rywal_nazwa": "Legia Warszawa", "widzew_gole": 1, "rywal_gole": 1, "rezultat": "R", "pozycja": 11, "bilans_do": "5-2-7", "punkty_do": 17}, {"kolejka": 13, "data": "2025-10-24", "rozgrywki": "Ekstraklasa", "gospodarz": "Motor Lublin", "gosc": "Widzew Łódź", "wynik": "3:0", "wynik_ht": null, "xg_home": 2.4, "shots_home": 16.0, "sot_home": 5.0, "bc_home": 5.0, "pass_pct_home": 83.0, "poss_home": 46.0, "xg_away": 0.59, "shots_away": 13.0, "sot_away": 4.0, "bc_away": 1.0, "pass_pct_away": 89.0, "poss_away": 54.0, "venue": "A", "widzew_xg": 0.59, "rywal_xg": 2.4, "widzew_shots": 13.0, "rywal_shots": 16.0, "widzew_sot": 4.0, "rywal_sot": 5.0, "widzew_bc": 1.0, "rywal_bc": 5.0, "widzew_pass_pct": 89.0, "rywal_pass_pct": 83.0, "widzew_poss": 54.0, "rywal_poss": 46.0, "rywal_nazwa": "Motor Lublin", "widzew_gole": 0, "rywal_gole": 3, "rezultat": "P", "pozycja": 12, "bilans_do": "5-1-7", "punkty_do": 16}, {"kolejka": 12, "data": "2025-10-17", "rozgrywki": "Ekstraklasa", "gospodarz": "Widzew Łódź", "gosc": "Radomiak Radom", "wynik": "3:2", "wynik_ht": null, "xg_home": 2.55, "shots_home": 18.0, "sot_home": 6.0, "bc_home": 6.0, "pass_pct_home": 78.0, "poss_home": 48.0, "xg_away": 2.06, "shots_away": 19.0, "sot_away": 6.0, "bc_away": 2.0, "pass_pct_away": 81.0, "poss_away": 52.0, "venue": "H", "widzew_xg": 2.55, "rywal_xg": 2.06, "widzew_shots": 18.0, "rywal_shots": 19.0, "widzew_sot": 6.0, "rywal_sot": 6.0, "widzew_bc": 6.0, "rywal_bc": 2.0, "widzew_pass_pct": 78.0, "rywal_pass_pct": 81.0, "widzew_poss": 48.0, "rywal_poss": 52.0, "rywal_nazwa": "Radomiak Radom", "widzew_gole": 3, "rywal_gole": 2, "rezultat": "W", "pozycja": 8, "bilans_do": "5-1-6", "punkty_do": 16}, {"kolejka": 11, "data": "2025-10-04", "rozgrywki": "Ekstraklasa", "gospodarz": "Bruk-Bet T.", "gosc": "Widzew Łódź", "wynik": "2:4", "wynik_ht": null, "xg_home": 0.87, "shots_home": 9.0, "sot_home": 4.0, "bc_home": 2.0, "pass_pct_home": 77.0, "poss_home": 53.0, "xg_away": 1.47, "shots_away": 14.0, "sot_away": 10.0, "bc_away": 4.0, "pass_pct_away": 78.0, "poss_away": 47.0, "venue": "A", "widzew_xg": 1.47, "rywal_xg": 0.87, "widzew_shots": 14.0, "rywal_shots": 9.0, "widzew_sot": 10.0, "rywal_sot": 4.0, "widzew_bc": 4.0, "rywal_bc": 2.0, "widzew_pass_pct": 78.0, "rywal_pass_pct": 77.0, "widzew_poss": 47.0, "rywal_poss": 53.0, "rywal_nazwa": "Bruk-Bet T.", "widzew_gole": 4, "rywal_gole": 2, "rezultat": "W", "pozycja": 11, "bilans_do": "4-1-6", "punkty_do": 13}, {"kolejka": 10, "data": "2025-09-28", "rozgrywki": "Ekstraklasa", "gospodarz": "Widzew Łódź", "gosc": "Raków Częstochowa", "wynik": "0:1", "wynik_ht": null, "xg_home": 0.57, "shots_home": 6.0, "sot_home": 1.0, "bc_home": 1.0, "pass_pct_home": 80.0, "poss_home": 38.0, "xg_away": 1.23, "shots_away": 20.0, "sot_away": 6.0, "bc_away": 1.0, "pass_pct_away": 89.0, "poss_away": 62.0, "venue": "H", "widzew_xg": 0.57, "rywal_xg": 1.23, "widzew_shots": 6.0, "rywal_shots": 20.0, "widzew_sot": 1.0, "rywal_sot": 6.0, "widzew_bc": 1.0, "rywal_bc": 1.0, "widzew_pass_pct": 80.0, "rywal_pass_pct": 89.0, "widzew_poss": 38.0, "rywal_poss": 62.0, "rywal_nazwa": "Raków Częstochowa", "widzew_gole": 0, "rywal_gole": 1, "rezultat": "P", "pozycja": 12, "bilans_do": "3-1-6", "punkty_do": 10}, {"kolejka": 9, "data": "2025-09-21", "rozgrywki": "Ekstraklasa", "gospodarz": "Górnik Zabrze", "gosc": "Widzew Łódź", "wynik": "3:2", "wynik_ht": null, "xg_home": 2.43, "shots_home": 17.0, "sot_home": 7.0, "bc_home": 3.0, "pass_pct_home": 83.0, "poss_home": 50.0, "xg_away": 1.43, "shots_away": 11.0, "sot_away": 5.0, "bc_away": 2.0, "pass_pct_away": 81.0, "poss_away": 50.0, "venue": "A", "widzew_xg": 1.43, "rywal_xg": 2.43, "widzew_shots": 11.0, "rywal_shots": 17.0, "widzew_sot": 5.0, "rywal_sot": 7.0, "widzew_bc": 2.0, "rywal_bc": 3.0, "widzew_pass_pct": 81.0, "rywal_pass_pct": 83.0, "widzew_poss": 50.0, "rywal_poss": 50.0, "rywal_nazwa": "Górnik Zabrze", "widzew_gole": 2, "rywal_gole": 3, "rezultat": "P", "pozycja": 10, "bilans_do": "3-1-5", "punkty_do": 10}, {"kolejka": 8, "data": "2025-09-14", "rozgrywki": "Ekstraklasa", "gospodarz": "Widzew Łódź", "gosc": "Arka Gdynia", "wynik": "2:0", "wynik_ht": null, "xg_home": 2.4, "shots_home": 14.0, "sot_home": 8.0, "bc_home": 5.0, "pass_pct_home": 84.0, "poss_home": 49.0, "xg_away": 0.97, "shots_away": 13.0, "sot_away": 5.0, "bc_away": 1.0, "pass_pct_away": 83.0, "poss_away": 51.0, "venue": "H", "widzew_xg": 2.4, "rywal_xg": 0.97, "widzew_shots": 14.0, "rywal_shots": 13.0, "widzew_sot": 8.0, "rywal_sot": 5.0, "widzew_bc": 5.0, "rywal_bc": 1.0, "widzew_pass_pct": 84.0, "rywal_pass_pct": 83.0, "widzew_poss": 49.0, "rywal_poss": 51.0, "rywal_nazwa": "Arka Gdynia", "widzew_gole": 2, "rywal_gole": 0, "rezultat": "W", "pozycja": 7, "bilans_do": "3-1-4", "punkty_do": 10}, {"kolejka": 7, "data": "2025-08-31", "rozgrywki": "Ekstraklasa", "gospodarz": "Lech Poznań", "gosc": "Widzew Łódź", "wynik": "2:1", "wynik_ht": null, "xg_home": 1.6, "shots_home": 13.0, "sot_home": 5.0, "bc_home": 3.0, "pass_pct_home": 82.0, "poss_home": 51.0, "xg_away": 1.36, "shots_away": 15.0, "sot_away": 3.0, "bc_away": 3.0, "pass_pct_away": 82.0, "poss_away": 49.0, "venue": "A", "widzew_xg": 1.36, "rywal_xg": 1.6, "widzew_shots": 15.0, "rywal_shots": 13.0, "widzew_sot": 3.0, "rywal_sot": 5.0, "widzew_bc": 3.0, "rywal_bc": 3.0, "widzew_pass_pct": 82.0, "rywal_pass_pct": 82.0, "widzew_poss": 49.0, "rywal_poss": 51.0, "rywal_nazwa": "Lech Poznań", "widzew_gole": 1, "rywal_gole": 2, "rezultat": "P", "pozycja": 13, "bilans_do": "2-1-4", "punkty_do": 7}, {"kolejka": 6, "data": "2025-08-22", "rozgrywki": "Ekstraklasa", "gospodarz": "Widzew Łódź", "gosc": "Pogoń Szczecin", "wynik": "1:2", "wynik_ht": null, "xg_home": 1.08, "shots_home": 13.0, "sot_home": 4.0, "bc_home": 2.0, "pass_pct_home": 79.0, "poss_home": 54.0, "xg_away": 0.32, "shots_away": 8.0, "sot_away": 4.0, "bc_away": 2.0, "pass_pct_away": 76.0, "poss_away": 46.0, "venue": "H", "widzew_xg": 1.08, "rywal_xg": 0.32, "widzew_shots": 13.0, "rywal_shots": 8.0, "widzew_sot": 4.0, "rywal_sot": 4.0, "widzew_bc": 2.0, "rywal_bc": 2.0, "widzew_pass_pct": 79.0, "rywal_pass_pct": 76.0, "widzew_poss": 54.0, "rywal_poss": 46.0, "rywal_nazwa": "Pogoń Szczecin", "widzew_gole": 1, "rywal_gole": 2, "rezultat": "P", "pozycja": 9, "bilans_do": "2-1-3", "punkty_do": 7}, {"kolejka": 5, "data": "2025-08-15", "rozgrywki": "Ekstraklasa", "gospodarz": "Cracovia", "gosc": "Widzew Łódź", "wynik": "1:0", "wynik_ht": null, "xg_home": 0.52, "shots_home": 8.0, "sot_home": 2.0, "bc_home": 2.0, "pass_pct_home": 72.0, "poss_home": 44.0, "xg_away": 0.87, "shots_away": 14.0, "sot_away": 4.0, "bc_away": 0.0, "pass_pct_away": 75.0, "poss_away": 56.0, "venue": "A", "widzew_xg": 0.87, "rywal_xg": 0.52, "widzew_shots": 14.0, "rywal_shots": 8.0, "widzew_sot": 4.0, "rywal_sot": 2.0, "widzew_bc": 0.0, "rywal_bc": 2.0, "widzew_pass_pct": 75.0, "rywal_pass_pct": 72.0, "widzew_poss": 56.0, "rywal_poss": 44.0, "rywal_nazwa": "Cracovia", "widzew_gole": 0, "rywal_gole": 1, "rezultat": "P", "pozycja": 8, "bilans_do": "2-1-2", "punkty_do": 7}, {"kolejka": 4, "data": "2025-08-09", "rozgrywki": "Ekstraklasa", "gospodarz": "Widzew Łódź", "gosc": "Wisła Płock", "wynik": "1:1", "wynik_ht": null, "xg_home": 0.87, "shots_home": 15.0, "sot_home": 6.0, "bc_home": 0.0, "pass_pct_home": 85.0, "poss_home": 61.0, "xg_away": 0.7, "shots_away": 5.0, "sot_away": 1.0, "bc_away": 2.0, "pass_pct_away": 73.0, "poss_away": 39.0, "venue": "H", "widzew_xg": 0.87, "rywal_xg": 0.7, "widzew_shots": 15.0, "rywal_shots": 5.0, "widzew_sot": 6.0, "rywal_sot": 1.0, "widzew_bc": 0.0, "rywal_bc": 2.0, "widzew_pass_pct": 85.0, "rywal_pass_pct": 73.0, "widzew_poss": 61.0, "rywal_poss": 39.0, "rywal_nazwa": "Wisła Płock", "widzew_gole": 1, "rywal_gole": 1, "rezultat": "R", "pozycja": 4, "bilans_do": "2-1-1", "punkty_do": 7}, {"kolejka": 3, "data": "2025-08-02", "rozgrywki": "Ekstraklasa", "gospodarz": "Widzew Łódź", "gosc": "GKS Katowice", "wynik": "3:0", "wynik_ht": null, "xg_home": 1.72, "shots_home": 21.0, "sot_home": 4.0, "bc_home": 3.0, "pass_pct_home": 75.0, "poss_home": 43.0, "xg_away": 1.09, "shots_away": 8.0, "sot_away": 3.0, "bc_away": 1.0, "pass_pct_away": 82.0, "poss_away": 57.0, "venue": "H", "widzew_xg": 1.72, "rywal_xg": 1.09, "widzew_shots": 21.0, "rywal_shots": 8.0, "widzew_sot": 4.0, "rywal_sot": 3.0, "widzew_bc": 3.0, "rywal_bc": 1.0, "widzew_pass_pct": 75.0, "rywal_pass_pct": 82.0, "widzew_poss": 43.0, "rywal_poss": 57.0, "rywal_nazwa": "GKS Katowice", "widzew_gole": 3, "rywal_gole": 0, "rezultat": "W", "pozycja": 4, "bilans_do": "2-0-1", "punkty_do": 6}, {"kolejka": 2, "data": "2025-07-27", "rozgrywki": "Ekstraklasa", "gospodarz": "Jagiellonia Białystok", "gosc": "Widzew Łódź", "wynik": "3:2", "wynik_ht": null, "xg_home": 1.63, "shots_home": 12.0, "sot_home": 5.0, "bc_home": 3.0, "pass_pct_home": 82.0, "poss_home": 59.0, "xg_away": 1.18, "shots_away": 18.0, "sot_away": 7.0, "bc_away": 2.0, "pass_pct_away": 78.0, "poss_away": 41.0, "venue": "A", "widzew_xg": 1.18, "rywal_xg": 1.63, "widzew_shots": 18.0, "rywal_shots": 12.0, "widzew_sot": 7.0, "rywal_sot": 5.0, "widzew_bc": 2.0, "rywal_bc": 3.0, "widzew_pass_pct": 78.0, "rywal_pass_pct": 82.0, "widzew_poss": 41.0, "rywal_poss": 59.0, "rywal_nazwa": "Jagiellonia Białystok", "widzew_gole": 2, "rywal_gole": 3, "rezultat": "P", "pozycja": 7, "bilans_do": "1-0-1", "punkty_do": 3}, {"kolejka": 1, "data": "2025-07-19", "rozgrywki": "Ekstraklasa", "gospodarz": "Widzew Łódź", "gosc": "Zagłębie Lubin", "wynik": "1:0", "wynik_ht": null, "xg_home": 1.06, "shots_home": 15.0, "sot_home": 4.0, "bc_home": 0.0, "pass_pct_home": 81.0, "poss_home": 53.0, "xg_away": 0.66, "shots_away": 11.0, "sot_away": 2.0, "bc_away": 0.0, "pass_pct_away": 78.0, "poss_away": 47.0, "venue": "H", "widzew_xg": 1.06, "rywal_xg": 0.66, "widzew_shots": 15.0, "rywal_shots": 11.0, "widzew_sot": 4.0, "rywal_sot": 2.0, "widzew_bc": 0.0, "rywal_bc": 0.0, "widzew_pass_pct": 81.0, "rywal_pass_pct": 78.0, "widzew_poss": 53.0, "rywal_poss": 47.0, "rywal_nazwa": "Zagłębie Lubin", "widzew_gole": 1, "rywal_gole": 0, "rezultat": "W", "pozycja": 7, "bilans_do": "1-0-0", "punkty_do": 3}], "liczba_meczow": 34, "srednie": {"widzew_xg": 1.2, "widzew_xg_n": 34, "rywal_xg": 1.14, "rywal_xg_n": 34, "widzew_shots": 12.94, "widzew_shots_n": 34, "rywal_shots": 12.09, "rywal_shots_n": 34, "widzew_sot": 3.91, "widzew_sot_n": 34, "rywal_sot": 3.44, "rywal_sot_n": 34, "widzew_bc": 2.03, "widzew_bc_n": 34, "rywal_bc": 1.79, "rywal_bc_n": 34, "widzew_pass_pct": 77.5, "widzew_pass_pct_n": 34, "rywal_pass_pct": 78.0, "rywal_pass_pct_n": 34, "widzew_poss": 48.88, "widzew_poss_n": 34, "rywal_poss": 51.12, "rywal_poss_n": 34, "widzew_gole": 1.21, "rywal_gole": 1.21, "bilans": {"W": 12, "R": 6, "P": 16}}, "forma_5": {"widzew_xg": 0.91, "widzew_xg_n": 5, "rywal_xg": 0.92, "rywal_xg_n": 5, "widzew_shots": 11.0, "widzew_shots_n": 5, "rywal_shots": 11.0, "rywal_shots_n": 5, "widzew_sot": 3.0, "widzew_sot_n": 5, "rywal_sot": 2.4, "rywal_sot_n": 5, "widzew_bc": 1.8, "widzew_bc_n": 5, "rywal_bc": 1.2, "rywal_bc_n": 5, "widzew_pass_pct": 74.0, "widzew_pass_pct_n": 5, "rywal_pass_pct": 79.2, "rywal_pass_pct_n": 5, "widzew_poss": 44.4, "widzew_poss_n": 5, "rywal_poss": 55.6, "rywal_poss_n": 5, "widzew_gole": 1.4, "rywal_gole": 0.8, "bilans": {"W": 3, "R": 0, "P": 2}}}, "2026/27": {"mecze": [{"kolejka": 2, "data": "2026-07-31", "rozgrywki": "Ekstraklasa", "gospodarz": "Wisła Płock", "gosc": "Widzew Łódź", "wynik": "0:0", "wynik_ht": null, "xg_home": 1.53, "shots_home": 15.0, "sot_home": 1.0, "bc_home": 3.0, "pass_pct_home": 76.0, "poss_home": 45.0, "xg_away": 1.79, "shots_away": 16.0, "sot_away": 3.0, "bc_away": 5.0, "pass_pct_away": 87.0, "poss_away": 55.0, "venue": "A", "widzew_xg": 1.79, "rywal_xg": 1.53, "widzew_shots": 16.0, "rywal_shots": 15.0, "widzew_sot": 3.0, "rywal_sot": 1.0, "widzew_bc": 5.0, "rywal_bc": 3.0, "widzew_pass_pct": 87.0, "rywal_pass_pct": 76.0, "widzew_poss": 55.0, "rywal_poss": 45.0, "rywal_nazwa": "Wisła Płock", "widzew_gole": 0, "rywal_gole": 0, "rezultat": "R", "pozycja": 13, "bilans_do": "0-2-0", "punkty_do": 2}, {"kolejka": 1, "data": "2026-07-26", "rozgrywki": "Ekstraklasa", "gospodarz": "Widzew Łódź", "gosc": "Motor Lublin", "wynik": "2:2", "wynik_ht": null, "xg_home": 2.5, "shots_home": 19.0, "sot_home": 3.0, "bc_home": 4.0, "pass_pct_home": 84.0, "poss_home": 53.0, "xg_away": 1.34, "shots_away": 11.0, "sot_away": 5.0, "bc_away": 4.0, "pass_pct_away": 78.0, "poss_away": 47.0, "venue": "H", "widzew_xg": 2.5, "rywal_xg": 1.34, "widzew_shots": 19.0, "rywal_shots": 11.0, "widzew_sot": 3.0, "rywal_sot": 5.0, "widzew_bc": 4.0, "rywal_bc": 4.0, "widzew_pass_pct": 84.0, "rywal_pass_pct": 78.0, "widzew_poss": 53.0, "rywal_poss": 47.0, "rywal_nazwa": "Motor Lublin", "widzew_gole": 2, "rywal_gole": 2, "rezultat": "R", "pozycja": 8, "bilans_do": "0-1-0", "punkty_do": 1}], "liczba_meczow": 2, "srednie": {"widzew_xg": 2.15, "widzew_xg_n": 2, "rywal_xg": 1.44, "rywal_xg_n": 2, "widzew_shots": 17.5, "widzew_shots_n": 2, "rywal_shots": 13.0, "rywal_shots_n": 2, "widzew_sot": 3.0, "widzew_sot_n": 2, "rywal_sot": 3.0, "rywal_sot_n": 2, "widzew_bc": 4.5, "widzew_bc_n": 2, "rywal_bc": 3.5, "rywal_bc_n": 2, "widzew_pass_pct": 85.5, "widzew_pass_pct_n": 2, "rywal_pass_pct": 77.0, "rywal_pass_pct_n": 2, "widzew_poss": 54.0, "widzew_poss_n": 2, "rywal_poss": 46.0, "rywal_poss_n": 2, "widzew_gole": 1.0, "rywal_gole": 1.0, "bilans": {"W": 0, "R": 2, "P": 0}}, "forma_5": {"widzew_xg": 2.15, "widzew_xg_n": 2, "rywal_xg": 1.44, "rywal_xg_n": 2, "widzew_shots": 17.5, "widzew_shots_n": 2, "rywal_shots": 13.0, "rywal_shots_n": 2, "widzew_sot": 3.0, "widzew_sot_n": 2, "rywal_sot": 3.0, "rywal_sot_n": 2, "widzew_bc": 4.5, "widzew_bc_n": 2, "rywal_bc": 3.5, "rywal_bc_n": 2, "widzew_pass_pct": 85.5, "widzew_pass_pct_n": 2, "rywal_pass_pct": 77.0, "rywal_pass_pct_n": 2, "widzew_poss": 54.0, "widzew_poss_n": 2, "rywal_poss": 46.0, "rywal_poss_n": 2, "widzew_gole": 1.0, "rywal_gole": 1.0, "bilans": {"W": 0, "R": 2, "P": 0}}}}};
+const METRYKI = [
+  ["xg", "xG", 2],
+  ["shots", "Strzały", 1],
+  ["sot", "Na bramkę", 1],
+  ["bc", "Wielkie szanse", 2],
+  ["pass_pct", "% podań", 1],
 ];
+const sezony = Object.keys(DANE.sezony).sort().reverse();  // biezacy pierwszy
+const [teraz, wczesniej] = sezony;
+let alignByRound = false;
 
-// Ile minut w kalendarzu zajmuje kurs (zawiezienie kończy się o starcie zajęć, odbiór zaczyna o końcu)
-const RIDE_MIN = 30;
-const TZ = 'Europe/Warsaw';
+function fmt(v, d) { return v === null || v === undefined ? "–" : v.toFixed(d); }
 
-const ALL = ['nadia', 'alicja', 'antek', 'ignas'];
-const K = 'Katolik', M = 'Szkoła muzyczna';
-
-// day: 1 = poniedziałek ... 7 = niedziela
-// UWAGA: nie zmieniaj "id" istniejących zajęć – od niego zależą zapisy na kursy.
-const EVENTS = [
-  { id: 'kat-1', day: 1, start: '08:00', end: '14:25', title: 'Lekcje', place: K, kids: ALL },
-  { id: 'kat-2', day: 2, start: '08:00', end: '14:25', title: 'Lekcje', place: K, kids: ALL },
-  { id: 'kat-3', day: 3, start: '08:00', end: '14:25', title: 'Lekcje', place: K, kids: ALL },
-  { id: 'kat-4', day: 4, start: '08:00', end: '14:25', title: 'Lekcje', place: K, kids: ALL },
-  { id: 'kat-5', day: 5, start: '08:00', end: '13:30', title: 'Lekcje', place: K, kids: ALL },
-
-  { id: 'sm-wsp-1', day: 1, start: '18:05', end: '19:40', title: 'Zajęcia wspólne', place: M, kids: ALL },
-  { id: 'ork-2',    day: 2, start: '15:45', end: '17:15', title: 'Orkiestra', place: M, kids: ['nadia', 'alicja'] },
-  { id: 'ork-5',    day: 5, start: '15:30', end: '17:00', title: 'Orkiestra', place: M, kids: ['nadia', 'alicja'] },
-  { id: 'chor-6',   day: 6, start: '10:00', end: '11:35', title: 'Chór',      place: M, kids: ['antek', 'ignas'] },
-
-  // Zajęcia indywidualne
-  { id: 'ind-nadia-1', day: 1, start: '17:00', end: '17:45', title: 'Indywidualne', place: M, kids: ['nadia'] },
-  { id: 'ind-nadia-4', day: 4, start: '16:20', end: '17:05', title: 'Indywidualne', place: M, kids: ['nadia'] },
-  // TODO: indywidualne Alicji, Antka i Ignasia, np.:
-  // { id: 'ind-alicja-3', day: 3, start: '16:00', end: '16:45', title: 'Indywidualne', place: M, kids: ['alicja'] },
-];
-
-/* ========================================================= */
-
-const DAYS = ['Poniedziałek', 'Wtorek', 'Środa', 'Czwartek', 'Piątek', 'Sobota', 'Niedziela'];
-const LOCAL_KEY = 'dowozy-rides-v2', ME_KEY = 'dowozy-me';
-const $ = s => document.querySelector(s);
-
-const store = {
-  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
-  set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
-};
-
-// rides: klucz "RRRR-MM-DD|idZajęć|tam|dziecko" -> rodzic ("tam" = zawozi, "z" = odbiera)
-let rides = {};
-let me = store.get(ME_KEY);
-let monday = mondayOf(new Date());
-let busy = false;
-
-function mondayOf(d) { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; }
-function addDays(d, n) { const x = new Date(d); x.setDate(x.getDate() + n); return x; }
-function ymd(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
-function dm(d) { return d.getDate() + '.' + String(d.getMonth() + 1).padStart(2, '0'); }
-function t(s) { return s.replace(/^0/, ''); }
-function kidOf(parent) { const p = PARENTS.find(p => p[0] === parent); return p ? KIDS[p[1]] : null; }
-function kidIdOf(parent) { const p = PARENTS.find(p => p[0] === parent); return p ? p[1] : null; }
-function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
-function rkey(ds, evId, type, kid) { return `${ds}|${evId}|${type}|${kid}`; }
-function kidName(k) { return `<span class="dot" style="background:${KIDS[k].color}"></span>${KIDS[k].name}`; }
-
-function slotHtml(ds, e, type, label, time, past, dayIdx) {
-  const byParent = {}, missing = [];
-  e.kids.forEach(k => {
-    const who = rides[rkey(ds, e.id, type, k)];
-    if (who) (byParent[who] = byParent[who] || []).push(k); else missing.push(k);
-  });
-  const parents = Object.keys(byParent);
-  let rows = parents.map(p =>
-    `<div class="row"><b>${p === me ? 'Ty' : esc(p)}:</b> ${byParent[p].map(kidName).join(', ')}</div>`).join('');
-  if (missing.length && parents.length) rows += `<div class="row missing">Brak: ${missing.map(k => KIDS[k].name).join(', ')}</div>`;
-  if (!parents.length) rows = `<div class="cta">${past ? '—' : 'Biorę'}</div>`;
-
-  let cls = 'slot', style = '';
-  if (!missing.length) cls += ' full';
-  if (byParent[me]) { cls += ' mine'; style = `--me:${kidOf(me)?.color || '#1d1d1f'}`; }
-
-  const cal = (!past && byParent[me])
-    ? `<a class="cal" target="_blank" rel="noopener" href="${esc(gcalUrl(ds, e, type, byParent[me]))}">
-         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M12 13v5M9.5 15.5h5"/></svg>
-         Dodaj do Kalendarza Google</a>` : '';
-
-  return `<div>` + `<button class="${cls}" style="${style}" ${past ? 'disabled' : ''}
-      data-date="${ds}" data-ev="${e.id}" data-type="${type}"
-      data-title="${esc(label + ' ' + t(time))}"
-      data-desc="${esc(e.title + ' · ' + DAYS[dayIdx].toLowerCase() + ' ' + dm(new Date(ds + 'T12:00')))}">
-      <span class="lbl">${label} ${t(time)}</span>${rows}</button>${cal}</div>`;
+function compare() {
+  const el = document.getElementById("compare");
+  const a = DANE.sezony[teraz].srednie, b = wczesniej ? DANE.sezony[wczesniej].srednie : null;
+  el.innerHTML = METRYKI.map(([k, nazwa, d]) => {
+    const now = a["widzew_" + k], was = b ? b["widzew_" + k] : null;
+    let delta = '<span class="delta flat">—</span>';
+    if (now !== null && was !== null) {
+      const diff = now - was;
+      const cls = Math.abs(diff) < 0.005 ? "flat" : (diff > 0 ? "up" : "down");
+      const znak = diff > 0 ? "+" : "";
+      delta = `<span class="delta ${cls}">${znak}${diff.toFixed(d)}</span>`;
+    }
+    return `<div class="metric"><b>${nazwa}</b>
+      <span class="now">${fmt(now, d)}</span>
+      <span class="was">${wczesniej} · ${fmt(was, d)}</span>${delta}</div>`;
+  }).join("") +
+  `<div class="metric"><b>Punkty / mecz</b>
+     <span class="now">${(DANE.sezony[teraz].srednie.bilans
+        ? (DANE.sezony[teraz].srednie.bilans.W * 3 + DANE.sezony[teraz].srednie.bilans.R)
+          / DANE.sezony[teraz].liczba_meczow : 0).toFixed(2)}</span>
+     <span class="was">${wczesniej} · ${(b && b.bilans
+        ? (b.bilans.W * 3 + b.bilans.R) / DANE.sezony[wczesniej].liczba_meczow : 0).toFixed(2)}</span></div>`;
 }
 
-// Link "dodaj wydarzenie" do Kalendarza Google – działa bez logowania do strony i bez konfiguracji
-function gcalUrl(ds, e, type, kids) {
-  const [h, m] = (type === 'tam' ? e.start : e.end).split(':').map(Number);
-  const at = new Date(ds + 'T00:00'); at.setHours(h, m, 0, 0);
-  const from = type === 'tam' ? new Date(at.getTime() - RIDE_MIN * 60000) : at;
-  const to = type === 'tam' ? at : new Date(at.getTime() + RIDE_MIN * 60000);
-  const f = d => ymd(d).replace(/-/g, '') + 'T' + String(d.getHours()).padStart(2, '0') + String(d.getMinutes()).padStart(2, '0') + '00';
-  const names = kids.map(k => KIDS[k].name).join(', ');
-  const q = new URLSearchParams({
-    action: 'TEMPLATE',
-    text: `${type === 'tam' ? 'Zawożę' : 'Odbieram'}: ${names} – ${e.title}`,
-    dates: `${f(from)}/${f(to)}`,
-    ctz: TZ,
-    location: e.place,
-    details: `${e.title} ${t(e.start)}–${t(e.end)}, ${e.place}\n${type === 'tam' ? 'Zawozisz' : 'Odbierasz'}: ${names}\n\nPlan i dowozy: ${location.href.split('#')[0]}`,
-  });
-  return 'https://calendar.google.com/calendar/render?' + q.toString();
+function wiersz(m) {
+  const gospodarz = m.gospodarz === DANE.druzyna
+    ? `<span class="w">${m.gospodarz}</span>` : m.gospodarz;
+  const gosc = m.gosc === DANE.druzyna
+    ? `<span class="w">${m.gosc}</span>` : m.gosc;
+  const xgBar = m.widzew_xg !== null
+    ? `<i style="transform:scaleX(${Math.min(m.widzew_xg / 2.8, 1)})"></i>` : "";
+  const pusto = v => v === null || v === undefined
+    ? '<span class="none">–</span>' : v;
+  return `<tr>
+    <td class="gutter"><span class="tick ${m.rezultat || ""}" title="${m.rezultat || ""}"></span></td>
+    <td class="k">${m.kolejka}</td>
+    <td class="match">${gospodarz} – ${gosc}</td>
+    <td class="score">${m.wynik || "–"}</td>
+    <td class="xg">${fmt(m.widzew_xg, 2)}${xgBar}</td>
+    <td>${pusto(m.widzew_shots)}</td>
+    <td>${pusto(m.widzew_sot)}</td>
+    <td>${pusto(m.widzew_bc)}</td>
+    <td>${pusto(m.widzew_pass_pct)}</td>
+    <td>${pusto(m.punkty_do)}</td>
+    <td>${pusto(m.pozycja)}</td>
+  </tr>`;
+}
+
+function tabela(sezon, kolejki) {
+  const s = DANE.sezony[sezon];
+  const wg = {};
+  s.mecze.forEach(m => wg[m.kolejka] = m);
+  const sr = s.srednie;
+  const body = kolejki.map(k => wg[k]
+    ? wiersz(wg[k])
+    : `<tr class="empty"><td colspan="11"></td></tr>`).join("");
+  const bil = sr.bilans ? `${sr.bilans.W}-${sr.bilans.R}-${sr.bilans.P}` : "";
+  return `<section>
+    <h2>${sezon}<span>${s.liczba_meczow} m. · ${bil}</span></h2>
+    <div class="scroll"><table>
+      <thead><tr>
+        <th class="gutter"></th><th>K</th><th class="match">Gospodarz – Gość</th>
+        <th>Wynik</th><th>xG</th><th>Strz</th><th>N.br</th><th>W.sz</th>
+        <th>%Pod</th><th>Pkt</th><th>Poz</th>
+      </tr></thead>
+      <tbody>${body}</tbody>
+      <tfoot><tr>
+        <td class="gutter"></td><td></td>
+        <td class="match">Średnia z ${s.liczba_meczow} meczów</td><td></td>
+        <td>${fmt(sr.widzew_xg, 2)}</td><td>${fmt(sr.widzew_shots, 1)}</td>
+        <td>${fmt(sr.widzew_sot, 1)}</td><td>${fmt(sr.widzew_bc, 2)}</td>
+        <td>${fmt(sr.widzew_pass_pct, 1)}</td><td></td><td></td>
+      </tr></tfoot>
+    </table></div>
+  </section>`;
 }
 
 function render() {
-  const todayStr = ymd(new Date());
-  const sunday = addDays(monday, 6);
-  let free = 0, boardHtml = '', todayIdx = -1;
-
-  for (let i = 0; i < 7; i++) {
-    const date = addDays(monday, i), ds = ymd(date);
-    const past = ds < todayStr, isToday = ds === todayStr;
-    if (isToday) todayIdx = i;
-    const evs = EVENTS.filter(e => e.day === i + 1).sort((a, b) => a.start.localeCompare(b.start));
-
-    let cards = evs.map(e => {
-      if (!past) ['tam', 'z'].forEach(type => {
-        if (e.kids.some(k => !rides[rkey(ds, e.id, type, k)])) free++;
-      });
-      const color = e.kids.length === 1 ? KIDS[e.kids[0]].color : '#9ca3af';
-      const kids = e.kids.map(k => `<span class="kid" style="--k:${KIDS[k].color}">${KIDS[k].name}</span>`).join('');
-      return `<article class="ev" style="--c:${color}">
-          <div class="evhead"><span class="time">${t(e.start)}–${t(e.end)}</span>
-            <span class="place ${e.place === K ? 'k' : 'm'}">${e.place}</span></div>
-          <div class="title">${e.title}</div>
-          <div class="kids">${kids}</div>
-          <div class="slots">
-            ${slotHtml(ds, e, 'tam', 'Zawozi', e.start, past, i)}
-            ${slotHtml(ds, e, 'z', 'Odbiera', e.end, past, i)}
-          </div>
-        </article>`;
-    }).join('');
-    if (!evs.length) cards = '<div class="empty">Brak zajęć</div>';
-
-    boardHtml += `<section class="day${isToday ? ' today' : ''}${past ? ' past' : ''}">
-        <div class="dayhead"><b>${DAYS[i]}</b><span>${dm(date)}</span></div>${cards}</section>`;
+  const el = document.getElementById("seasons");
+  if (alignByRound) {
+    // wspolna os kolejek, rosnaco - kolejka 1 obok kolejki 1
+    const maks = Math.max(...sezony.flatMap(s =>
+      DANE.sezony[s].mecze.map(m => m.kolejka)));
+    const kolejki = Array.from({ length: maks }, (_, i) => i + 1);
+    el.innerHTML = sezony.map(s => tabela(s, kolejki)).join("");
+  } else {
+    el.innerHTML = sezony.map(s => tabela(s,
+      DANE.sezony[s].mecze.map(m => m.kolejka))).join("");
   }
-
-  $('#board').innerHTML = boardHtml;
-  const lastPast = ymd(sunday) < todayStr;
-  $('#range').innerHTML = `${dm(monday)} – ${dm(sunday)}.${sunday.getFullYear()}` +
-    (lastPast ? '' : free ? `<small>Kursy bez kierowcy: ${free}</small>` : `<small class="ok">Wszystkie kursy obsadzone</small>`);
-
-  const k = kidOf(me);
-  $('#who').innerHTML = me ? `<span class="dot" style="background:${k.color}"></span>${esc(me)}` : 'Kim jesteś?';
-  return todayIdx;
 }
 
-function scrollToDay(idx) {
-  const board = $('#board'), col = board.children[idx];
-  if (col && board.scrollWidth > board.clientWidth) board.scrollLeft = col.offsetLeft - board.offsetLeft - 16;
-}
-function showWeek(scroll) { const idx = render(); if (scroll) scrollToDay(idx >= 0 ? idx : 0); }
-
-/* ---------- komunikacja ---------- */
-
-function localRides() { try { return JSON.parse(store.get(LOCAL_KEY) || '{}'); } catch (e) { return {}; } }
-function setFromServer(list) {
-  rides = {};
-  (list || []).forEach(r => { if (r.key && r.parent) rides[r.key] = r.parent; });
-}
-
-async function load() {
-  if (!SCRIPT_URL) { rides = localRides(); render(); return; }
-  try {
-    const res = await fetch(SCRIPT_URL + '?t=' + Date.now());
-    setFromServer((await res.json()).rides);
-    $('#banner').hidden = true;
-  } catch (e) {
-    $('#banner').textContent = 'Brak połączenia – pokazuję ostatnio pobrany stan.';
-    $('#banner').hidden = false;
-  }
+document.getElementById("mode").addEventListener("click", e => {
+  alignByRound = !alignByRound;
+  e.currentTarget.setAttribute("aria-pressed", String(alignByRound));
+  e.currentTarget.textContent = alignByRound
+    ? "Najnowsza kolejka u góry" : "Zestaw kolejka do kolejki";
+  document.getElementById("hint").textContent = alignByRound
+    ? "Kolejki zestawione od 1. Kreskowane wiersze to kolejki jeszcze nierozegrane."
+    : "Najnowsza kolejka u góry, każdy sezon niezależnie.";
   render();
-}
-
-// body: { parent, claims:[klucz...], releases:[klucz...] }
-async function send(body) {
-  if (!SCRIPT_URL) {
-    const r = localRides(), conflicts = [];
-    body.releases.forEach(k => { if (r[k] === body.parent) delete r[k]; });
-    body.claims.forEach(k => { if (r[k] && r[k] !== body.parent) conflicts.push({ key: k, parent: r[k] }); else r[k] = body.parent; });
-    store.set(LOCAL_KEY, JSON.stringify(r));
-    rides = r;
-    return { ok: true, conflicts };
-  }
-  const res = await fetch(SCRIPT_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify(body),
-  });
-  const data = await res.json();
-  setFromServer(data.rides);
-  return data;
-}
-
-/* ---------- interakcje ---------- */
-
-let toastTimer;
-function toast(msg) {
-  const el = $('#toast'); el.textContent = msg; el.hidden = false;
-  clearTimeout(toastTimer); toastTimer = setTimeout(() => el.hidden = true, 3000);
-}
-
-function openPicker() {
-  $('#plist').innerHTML = PARENTS.map(([name, kid]) =>
-    `<button class="pbtn" data-p="${name}"><span class="dot" style="background:${KIDS[kid].color}"></span>${name}</button>`).join('');
-  $('#picker').hidden = false;
-}
-$('#plist').addEventListener('click', e => {
-  const b = e.target.closest('[data-p]'); if (!b) return;
-  me = b.dataset.p; store.set(ME_KEY, me); $('#picker').hidden = true; render();
 });
 
-// Okno "kogo zawozisz / odbierasz"
-let current = null;
-function openAssign(d) {
-  const e = EVENTS.find(x => x.id === d.ev);
-  const myKid = kidIdOf(me);
-  const noneMine = !e.kids.some(k => rides[rkey(d.date, e.id, d.type, k)] === me);
-  const kids = [...e.kids].sort((a, b) => (b === myKid) - (a === myKid));
-  current = { ...d, kids };
-
-  $('#atitle').textContent = `${d.title} – kogo ${d.type === 'tam' ? 'zawozisz' : 'odbierasz'}?`;
-  $('#adesc').textContent = d.desc;
-  $('#aklist').innerHTML = kids.map(k => {
-    const who = rides[rkey(d.date, e.id, d.type, k)];
-    const other = who && who !== me;
-    // Przy pierwszym otwarciu zaznacz własne dziecko, jeśli wolne
-    const checked = who === me || (noneMine && !who && k === myKid);
-    return `<label class="kopt${checked ? ' on' : ''}${other ? ' other' : ''}">
-        <input type="checkbox" value="${k}" ${checked ? 'checked' : ''} ${other ? 'disabled' : ''}>
-        ${kidName(k)}${other ? `<span class="who2">${esc(who)}</span>` : ''}</label>`;
-  }).join('');
-  $('#aall').hidden = kids.filter(k => !rides[rkey(d.date, e.id, d.type, k)]).length < 2;
-  $('#assign').hidden = false;
-}
-$('#aklist').addEventListener('change', e => {
-  const l = e.target.closest('.kopt'); if (l) l.classList.toggle('on', e.target.checked);
-});
-$('#aall').onclick = () => {
-  $('#aklist').querySelectorAll('input:not(:disabled)').forEach(i => { i.checked = true; i.closest('.kopt').classList.add('on'); });
-};
-$('#acancel').onclick = () => { $('#assign').hidden = true; };
-$('#asave').onclick = async () => {
-  if (busy) return;
-  const d = current, claims = [], releases = [];
-  $('#aklist').querySelectorAll('input:not(:disabled)').forEach(i => {
-    const key = rkey(d.date, d.ev, d.type, i.value), mine = rides[key] === me;
-    if (i.checked && !mine) claims.push(key);
-    if (!i.checked && mine) releases.push(key);
-  });
-  $('#assign').hidden = true;
-  if (!claims.length && !releases.length) return;
-
-  const backup = { ...rides };
-  claims.forEach(k => rides[k] = me); releases.forEach(k => delete rides[k]);
-  render();
-  busy = true;
-  try {
-    const r = await send({ parent: me, claims, releases });
-    if (r.conflicts && r.conflicts.length) {
-      toast('Ktoś był szybszy: ' + r.conflicts.map(c => `${KIDS[c.key.split('|')[3]].name} – ${c.parent}`).join(', '));
-    } else toast('Zapisano ✓');
-  } catch (err) {
-    rides = backup;
-    toast('Nie udało się zapisać – sprawdź internet i spróbuj ponownie.');
-  }
-  busy = false;
-  render();
-};
-
-$('#board').addEventListener('click', e => {
-  const b = e.target.closest('.slot'); if (!b || b.disabled || busy) return;
-  if (!me) { openPicker(); return; }
-  openAssign(b.dataset);
-});
-
-$('#who').onclick = openPicker;
-$('#prev').onclick = () => { monday = addDays(monday, -7); showWeek(true); };
-$('#next').onclick = () => { monday = addDays(monday, 7); showWeek(true); };
-$('#today').onclick = () => { monday = mondayOf(new Date()); showWeek(true); };
-
-$('#legend').innerHTML = Object.values(KIDS).map(k => `<span><span class="dot" style="background:${k.color}"></span>${k.name}</span>`).join('');
-if (!SCRIPT_URL) { $('#banner').textContent = 'Tryb testowy – zapisy widać tylko na tym urządzeniu.'; $('#banner').hidden = false; }
-
-showWeek(true);
-load();
-if (!me) openPicker();
-setInterval(() => { if (!document.hidden && !busy && $('#assign').hidden) load(); }, 60000);
-document.addEventListener('visibilitychange', () => { if (!document.hidden && !busy) load(); });
+compare();
+render();
 </script>
 </body>
 </html>
