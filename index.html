@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Plan i dowozy</title>
+<meta name="theme-color" content="#f6f5f2">
+<style>
+  :root{
+    --bg:#f6f5f2; --card:#ffffff; --ink:#1d1d1f; --muted:#6b6b70; --line:#e3e1dc;
+    --free:#b45309; --free-bg:#fff7ed; --taken:#f1f2f4;
+  }
+  *{box-sizing:border-box}
+  [hidden]{display:none !important}
+  html,body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;font-size:16px;line-height:1.35}
+  button{font:inherit;color:inherit;cursor:pointer}
+  header{position:sticky;top:0;z-index:5;background:var(--bg);padding:12px 16px 8px;border-bottom:1px solid var(--line)}
+  .top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+  h1{font-size:20px;margin:0}
+  .who{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:6px 12px;font-size:14px;
+    display:flex;align-items:center;gap:6px;white-space:nowrap}
+  .dot{width:10px;height:10px;border-radius:50%;display:inline-block;flex:none}
+  .weeknav{display:flex;align-items:center;gap:8px;margin-top:10px}
+  .weeknav .arrow{width:40px;height:40px;border-radius:10px;border:1px solid var(--line);background:var(--card);font-size:22px;line-height:1}
+  #range{flex:1;text-align:center;font-weight:600}
+  #range small{display:block;font-weight:500;color:var(--free);font-size:13px}
+  #range small.ok{color:#15803d}
+  .todaybtn{height:40px;padding:0 12px;border-radius:10px;border:1px solid var(--line);background:var(--card);font-size:14px}
+  .legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:8px;font-size:13px;color:var(--muted)}
+  .legend span{display:flex;align-items:center;gap:5px}
+  .banner{margin-top:8px;background:#fef3c7;border:1px solid #fcd34d;border-radius:8px;padding:6px 10px;font-size:13px}
+
+  .board{display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;padding:12px 16px 40px;
+    -webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .board::-webkit-scrollbar{display:none}
+  .day{flex:0 0 86%;scroll-snap-align:center;display:flex;flex-direction:column;gap:10px;min-width:0}
+  .dayhead{display:flex;align-items:baseline;justify-content:space-between;padding:4px 2px}
+  .dayhead b{font-size:17px}
+  .dayhead span{color:var(--muted);font-size:14px}
+  .day.today .dayhead b{color:#1d4ed8}
+  .day.today .dayhead span{background:#1d4ed8;color:#fff;border-radius:999px;padding:1px 8px}
+  .day.past{opacity:.55}
+  .empty{color:var(--muted);font-size:14px;padding:16px;text-align:center;border:1px dashed var(--line);border-radius:12px}
+
+  .ev{background:var(--card);border:1px solid var(--line);border-left:5px solid var(--c,#9ca3af);border-radius:12px;padding:10px 10px 10px 12px}
+  .evhead{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:4px 6px}
+  .time{font-weight:700;font-size:15px}
+  .place{font-size:12px;padding:2px 8px;border-radius:999px;white-space:nowrap}
+  .place.k{background:#e0f2fe;color:#075985}
+  .place.m{background:#fce7f3;color:#9d174d}
+  .title{margin-top:2px;font-size:15px}
+  .kids{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+  .kid{font-size:12px;padding:2px 8px;border-radius:999px;color:#fff;background:var(--k)}
+
+  .slots{display:flex;flex-direction:column;gap:6px;margin-top:10px}
+  .slot{width:100%;min-height:48px;border-radius:10px;padding:6px 10px;text-align:left;border:1.5px dashed var(--free);background:var(--free-bg);
+    display:flex;flex-direction:column;gap:2px}
+  .slot.full{border:1.5px solid transparent;background:var(--taken)}
+  .slot.mine{border-color:var(--me)}
+  .slot .lbl{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}
+  .slot .row{font-size:14px;display:flex;flex-wrap:wrap;align-items:center;gap:4px}
+  .slot .row b{font-weight:600}
+  .slot .row.missing{color:var(--free);font-weight:600}
+  .slot .row .dot{width:8px;height:8px}
+  .slot .cta{font-size:14px;font-weight:600;color:var(--free)}
+  .slot:disabled{cursor:default}
+  .cal{display:inline-flex;align-items:center;gap:6px;min-height:34px;padding:2px 4px;font-size:13px;color:#1d4ed8;text-decoration:none}
+  .cal svg{width:16px;height:16px;flex:none}
+  .past .slot{border-color:var(--line);background:transparent}
+  .past .slot .row.missing,.past .slot .cta{color:var(--muted)}
+
+  @media (min-width:960px){
+    .board{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));overflow:visible;gap:10px}
+  }
+
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#1d1d1f;color:#fff;padding:10px 16px;
+    border-radius:10px;font-size:14px;z-index:40;max-width:calc(100% - 32px);text-align:center}
+  .modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center;z-index:30}
+  .sheet{background:var(--card);width:100%;max-width:480px;border-radius:16px 16px 0 0;padding:18px 16px 24px;max-height:90vh;overflow:auto}
+  @media (min-width:600px){.modal{align-items:center}.sheet{border-radius:16px}}
+  .sheet h2{margin:0 0 4px;font-size:18px}
+  .sheet p{margin:0 0 12px;color:var(--muted);font-size:14px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .pbtn{min-height:52px;border:1px solid var(--line);border-radius:12px;background:var(--bg);display:flex;align-items:center;gap:8px;padding:0 12px;text-align:left}
+  .klist{display:flex;flex-direction:column;gap:8px}
+  .kopt{display:flex;align-items:center;gap:12px;min-height:56px;padding:0 14px;border:1.5px solid var(--line);border-radius:12px;background:var(--bg);font-size:16px}
+  .kopt input{width:24px;height:24px;accent-color:#1d1d1f;flex:none}
+  .kopt .who2{margin-left:auto;font-size:13px;color:var(--muted)}
+  .kopt.on{border-color:#1d1d1f;background:#fff}
+  .kopt.other{opacity:.6}
+  .sheet .actions{display:flex;gap:8px;margin-top:14px}
+  .sheet .actions button{flex:1;min-height:48px;border-radius:12px;border:1px solid var(--line);background:var(--bg)}
+  .sheet .actions .primary{background:#1d1d1f;color:#fff;border-color:#1d1d1f}
+  .linkbtn{background:none;border:0;color:#1d4ed8;font-size:14px;padding:4px 0;margin-bottom:8px}
+</style>
+</head>
+<body>
+<header>
+  <div class="top">
+    <h1>Plan i dowozy</h1>
+    <button id="who" class="who"></button>
+  </div>
+  <div class="weeknav">
+    <button class="arrow" id="prev" aria-label="Poprzedni tydzień">‹</button>
+    <div id="range"></div>
+    <button class="arrow" id="next" aria-label="Następny tydzień">›</button>
+    <button class="todaybtn" id="today">Dziś</button>
+  </div>
+  <div id="legend" class="legend"></div>
+  <div id="banner" class="banner" hidden></div>
+</header>
+
+<main id="board" class="board"></main>
+
+<div id="toast" class="toast" hidden></div>
+
+<div id="picker" class="modal" hidden>
+  <div class="sheet">
+    <h2>Kim jesteś?</h2>
+    <p>Wybierz raz – telefon to zapamięta.</p>
+    <div id="plist" class="grid2"></div>
+  </div>
+</div>
+
+<div id="assign" class="modal" hidden>
+  <div class="sheet">
+    <h2 id="atitle"></h2>
+    <p id="adesc"></p>
+    <button id="aall" class="linkbtn">Zaznacz wszystkie wolne</button>
+    <div id="aklist" class="klist"></div>
+    <div class="actions">
+      <button id="acancel">Anuluj</button>
+      <button id="asave" class="primary">Zapisz</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =========================================================
+   KONFIGURACJA – tu zmieniasz plan
+   ========================================================= */
+
+// Adres aplikacji Google Apps Script (kończy się na /exec).
+// Puste = tryb testowy: zapisy tylko na tym urządzeniu.
+const SCRIPT_URL = '';
+
+const KIDS = {
+  nadia:  { name: 'Nadia',  color: '#E4572E' },
+  alicja: { name: 'Alicja', color: '#8B5CF6' },
+  antek:  { name: 'Antek',  color: '#2E86AB' },
+  ignas:  { name: 'Ignaś',  color: '#2F9E55' },
+};
+
+const PARENTS = [
+  ['Mama Nadii', 'nadia'],  ['Tata Nadii', 'nadia'],
+  ['Mama Alicji', 'alicja'], ['Tata Alicji', 'alicja'],
+  ['Mama Antka', 'antek'],  ['Tata Antka', 'antek'],
+  ['Mama Ignasia', 'ignas'], ['Tata Ignasia', 'ignas'],
+];
+
+// Ile minut w kalendarzu zajmuje kurs (zawiezienie kończy się o starcie zajęć, odbiór zaczyna o końcu)
+const RIDE_MIN = 30;
+const TZ = 'Europe/Warsaw';
+
+const ALL = ['nadia', 'alicja', 'antek', 'ignas'];
+const K = 'Katolik', M = 'Szkoła muzyczna';
+
+// day: 1 = poniedziałek ... 7 = niedziela
+// UWAGA: nie zmieniaj "id" istniejących zajęć – od niego zależą zapisy na kursy.
+const EVENTS = [
+  { id: 'kat-1', day: 1, start: '08:00', end: '14:25', title: 'Lekcje', place: K, kids: ALL },
+  { id: 'kat-2', day: 2, start: '08:00', end: '14:25', title: 'Lekcje', place: K, kids: ALL },
+  { id: 'kat-3', day: 3, start: '08:00', end: '14:25', title: 'Lekcje', place: K, kids: ALL },
+  { id: 'kat-4', day: 4, start: '08:00', end: '14:25', title: 'Lekcje', place: K, kids: ALL },
+  { id: 'kat-5', day: 5, start: '08:00', end: '13:30', title: 'Lekcje', place: K, kids: ALL },
+
+  { id: 'sm-wsp-1', day: 1, start: '18:05', end: '19:40', title: 'Zajęcia wspólne', place: M, kids: ALL },
+  { id: 'ork-2',    day: 2, start: '15:45', end: '17:15', title: 'Orkiestra', place: M, kids: ['nadia', 'alicja'] },
+  { id: 'ork-5',    day: 5, start: '15:30', end: '17:00', title: 'Orkiestra', place: M, kids: ['nadia', 'alicja'] },
+  { id: 'chor-6',   day: 6, start: '10:00', end: '11:35', title: 'Chór',      place: M, kids: ['antek', 'ignas'] },
+
+  // Zajęcia indywidualne
+  { id: 'ind-nadia-1', day: 1, start: '17:00', end: '17:45', title: 'Indywidualne', place: M, kids: ['nadia'] },
+  { id: 'ind-nadia-4', day: 4, start: '16:20', end: '17:05', title: 'Indywidualne', place: M, kids: ['nadia'] },
+  // TODO: indywidualne Alicji, Antka i Ignasia, np.:
+  // { id: 'ind-alicja-3', day: 3, start: '16:00', end: '16:45', title: 'Indywidualne', place: M, kids: ['alicja'] },
+];
+
+/* ========================================================= */
+
+const DAYS = ['Poniedziałek', 'Wtorek', 'Środa', 'Czwartek', 'Piątek', 'Sobota', 'Niedziela'];
+const LOCAL_KEY = 'dowozy-rides-v2', ME_KEY = 'dowozy-me';
+const $ = s => document.querySelector(s);
+
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch (e) { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+};
+
+// rides: klucz "RRRR-MM-DD|idZajęć|tam|dziecko" -> rodzic ("tam" = zawozi, "z" = odbiera)
+let rides = {};
+let me = store.get(ME_KEY);
+let monday = mondayOf(new Date());
+let busy = false;
+
+function mondayOf(d) { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; }
+function addDays(d, n) { const x = new Date(d); x.setDate(x.getDate() + n); return x; }
+function ymd(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function dm(d) { return d.getDate() + '.' + String(d.getMonth() + 1).padStart(2, '0'); }
+function t(s) { return s.replace(/^0/, ''); }
+function kidOf(parent) { const p = PARENTS.find(p => p[0] === parent); return p ? KIDS[p[1]] : null; }
+function kidIdOf(parent) { const p = PARENTS.find(p => p[0] === parent); return p ? p[1] : null; }
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+function rkey(ds, evId, type, kid) { return `${ds}|${evId}|${type}|${kid}`; }
+function kidName(k) { return `<span class="dot" style="background:${KIDS[k].color}"></span>${KIDS[k].name}`; }
+
+function slotHtml(ds, e, type, label, time, past, dayIdx) {
+  const byParent = {}, missing = [];
+  e.kids.forEach(k => {
+    const who = rides[rkey(ds, e.id, type, k)];
+    if (who) (byParent[who] = byParent[who] || []).push(k); else missing.push(k);
+  });
+  const parents = Object.keys(byParent);
+  let rows = parents.map(p =>
+    `<div class="row"><b>${p === me ? 'Ty' : esc(p)}:</b> ${byParent[p].map(kidName).join(', ')}</div>`).join('');
+  if (missing.length && parents.length) rows += `<div class="row missing">Brak: ${missing.map(k => KIDS[k].name).join(', ')}</div>`;
+  if (!parents.length) rows = `<div class="cta">${past ? '—' : 'Biorę'}</div>`;
+
+  let cls = 'slot', style = '';
+  if (!missing.length) cls += ' full';
+  if (byParent[me]) { cls += ' mine'; style = `--me:${kidOf(me)?.color || '#1d1d1f'}`; }
+
+  const cal = (!past && byParent[me])
+    ? `<a class="cal" target="_blank" rel="noopener" href="${esc(gcalUrl(ds, e, type, byParent[me]))}">
+         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M12 13v5M9.5 15.5h5"/></svg>
+         Dodaj do Kalendarza Google</a>` : '';
+
+  return `<div>` + `<button class="${cls}" style="${style}" ${past ? 'disabled' : ''}
+      data-date="${ds}" data-ev="${e.id}" data-type="${type}"
+      data-title="${esc(label + ' ' + t(time))}"
+      data-desc="${esc(e.title + ' · ' + DAYS[dayIdx].toLowerCase() + ' ' + dm(new Date(ds + 'T12:00')))}">
+      <span class="lbl">${label} ${t(time)}</span>${rows}</button>${cal}</div>`;
+}
+
+// Link "dodaj wydarzenie" do Kalendarza Google – działa bez logowania do strony i bez konfiguracji
+function gcalUrl(ds, e, type, kids) {
+  const [h, m] = (type === 'tam' ? e.start : e.end).split(':').map(Number);
+  const at = new Date(ds + 'T00:00'); at.setHours(h, m, 0, 0);
+  const from = type === 'tam' ? new Date(at.getTime() - RIDE_MIN * 60000) : at;
+  const to = type === 'tam' ? at : new Date(at.getTime() + RIDE_MIN * 60000);
+  const f = d => ymd(d).replace(/-/g, '') + 'T' + String(d.getHours()).padStart(2, '0') + String(d.getMinutes()).padStart(2, '0') + '00';
+  const names = kids.map(k => KIDS[k].name).join(', ');
+  const q = new URLSearchParams({
+    action: 'TEMPLATE',
+    text: `${type === 'tam' ? 'Zawożę' : 'Odbieram'}: ${names} – ${e.title}`,
+    dates: `${f(from)}/${f(to)}`,
+    ctz: TZ,
+    location: e.place,
+    details: `${e.title} ${t(e.start)}–${t(e.end)}, ${e.place}\n${type === 'tam' ? 'Zawozisz' : 'Odbierasz'}: ${names}\n\nPlan i dowozy: ${location.href.split('#')[0]}`,
+  });
+  return 'https://calendar.google.com/calendar/render?' + q.toString();
+}
+
+function render() {
+  const todayStr = ymd(new Date());
+  const sunday = addDays(monday, 6);
+  let free = 0, boardHtml = '', todayIdx = -1;
+
+  for (let i = 0; i < 7; i++) {
+    const date = addDays(monday, i), ds = ymd(date);
+    const past = ds < todayStr, isToday = ds === todayStr;
+    if (isToday) todayIdx = i;
+    const evs = EVENTS.filter(e => e.day === i + 1).sort((a, b) => a.start.localeCompare(b.start));
+
+    let cards = evs.map(e => {
+      if (!past) ['tam', 'z'].forEach(type => {
+        if (e.kids.some(k => !rides[rkey(ds, e.id, type, k)])) free++;
+      });
+      const color = e.kids.length === 1 ? KIDS[e.kids[0]].color : '#9ca3af';
+      const kids = e.kids.map(k => `<span class="kid" style="--k:${KIDS[k].color}">${KIDS[k].name}</span>`).join('');
+      return `<article class="ev" style="--c:${color}">
+          <div class="evhead"><span class="time">${t(e.start)}–${t(e.end)}</span>
+            <span class="place ${e.place === K ? 'k' : 'm'}">${e.place}</span></div>
+          <div class="title">${e.title}</div>
+          <div class="kids">${kids}</div>
+          <div class="slots">
+            ${slotHtml(ds, e, 'tam', 'Zawozi', e.start, past, i)}
+            ${slotHtml(ds, e, 'z', 'Odbiera', e.end, past, i)}
+          </div>
+        </article>`;
+    }).join('');
+    if (!evs.length) cards = '<div class="empty">Brak zajęć</div>';
+
+    boardHtml += `<section class="day${isToday ? ' today' : ''}${past ? ' past' : ''}">
+        <div class="dayhead"><b>${DAYS[i]}</b><span>${dm(date)}</span></div>${cards}</section>`;
+  }
+
+  $('#board').innerHTML = boardHtml;
+  const lastPast = ymd(sunday) < todayStr;
+  $('#range').innerHTML = `${dm(monday)} – ${dm(sunday)}.${sunday.getFullYear()}` +
+    (lastPast ? '' : free ? `<small>Kursy bez kierowcy: ${free}</small>` : `<small class="ok">Wszystkie kursy obsadzone</small>`);
+
+  const k = kidOf(me);
+  $('#who').innerHTML = me ? `<span class="dot" style="background:${k.color}"></span>${esc(me)}` : 'Kim jesteś?';
+  return todayIdx;
+}
+
+function scrollToDay(idx) {
+  const board = $('#board'), col = board.children[idx];
+  if (col && board.scrollWidth > board.clientWidth) board.scrollLeft = col.offsetLeft - board.offsetLeft - 16;
+}
+function showWeek(scroll) { const idx = render(); if (scroll) scrollToDay(idx >= 0 ? idx : 0); }
+
+/* ---------- komunikacja ---------- */
+
+function localRides() { try { return JSON.parse(store.get(LOCAL_KEY) || '{}'); } catch (e) { return {}; } }
+function setFromServer(list) {
+  rides = {};
+  (list || []).forEach(r => { if (r.key && r.parent) rides[r.key] = r.parent; });
+}
+
+async function load() {
+  if (!SCRIPT_URL) { rides = localRides(); render(); return; }
+  try {
+    const res = await fetch(SCRIPT_URL + '?t=' + Date.now());
+    setFromServer((await res.json()).rides);
+    $('#banner').hidden = true;
+  } catch (e) {
+    $('#banner').textContent = 'Brak połączenia – pokazuję ostatnio pobrany stan.';
+    $('#banner').hidden = false;
+  }
+  render();
+}
+
+// body: { parent, claims:[klucz...], releases:[klucz...] }
+async function send(body) {
+  if (!SCRIPT_URL) {
+    const r = localRides(), conflicts = [];
+    body.releases.forEach(k => { if (r[k] === body.parent) delete r[k]; });
+    body.claims.forEach(k => { if (r[k] && r[k] !== body.parent) conflicts.push({ key: k, parent: r[k] }); else r[k] = body.parent; });
+    store.set(LOCAL_KEY, JSON.stringify(r));
+    rides = r;
+    return { ok: true, conflicts };
+  }
+  const res = await fetch(SCRIPT_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  setFromServer(data.rides);
+  return data;
+}
+
+/* ---------- interakcje ---------- */
+
+let toastTimer;
+function toast(msg) {
+  const el = $('#toast'); el.textContent = msg; el.hidden = false;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => el.hidden = true, 3000);
+}
+
+function openPicker() {
+  $('#plist').innerHTML = PARENTS.map(([name, kid]) =>
+    `<button class="pbtn" data-p="${name}"><span class="dot" style="background:${KIDS[kid].color}"></span>${name}</button>`).join('');
+  $('#picker').hidden = false;
+}
+$('#plist').addEventListener('click', e => {
+  const b = e.target.closest('[data-p]'); if (!b) return;
+  me = b.dataset.p; store.set(ME_KEY, me); $('#picker').hidden = true; render();
+});
+
+// Okno "kogo zawozisz / odbierasz"
+let current = null;
+function openAssign(d) {
+  const e = EVENTS.find(x => x.id === d.ev);
+  const myKid = kidIdOf(me);
+  const noneMine = !e.kids.some(k => rides[rkey(d.date, e.id, d.type, k)] === me);
+  const kids = [...e.kids].sort((a, b) => (b === myKid) - (a === myKid));
+  current = { ...d, kids };
+
+  $('#atitle').textContent = `${d.title} – kogo ${d.type === 'tam' ? 'zawozisz' : 'odbierasz'}?`;
+  $('#adesc').textContent = d.desc;
+  $('#aklist').innerHTML = kids.map(k => {
+    const who = rides[rkey(d.date, e.id, d.type, k)];
+    const other = who && who !== me;
+    // Przy pierwszym otwarciu zaznacz własne dziecko, jeśli wolne
+    const checked = who === me || (noneMine && !who && k === myKid);
+    return `<label class="kopt${checked ? ' on' : ''}${other ? ' other' : ''}">
+        <input type="checkbox" value="${k}" ${checked ? 'checked' : ''} ${other ? 'disabled' : ''}>
+        ${kidName(k)}${other ? `<span class="who2">${esc(who)}</span>` : ''}</label>`;
+  }).join('');
+  $('#aall').hidden = kids.filter(k => !rides[rkey(d.date, e.id, d.type, k)]).length < 2;
+  $('#assign').hidden = false;
+}
+$('#aklist').addEventListener('change', e => {
+  const l = e.target.closest('.kopt'); if (l) l.classList.toggle('on', e.target.checked);
+});
+$('#aall').onclick = () => {
+  $('#aklist').querySelectorAll('input:not(:disabled)').forEach(i => { i.checked = true; i.closest('.kopt').classList.add('on'); });
+};
+$('#acancel').onclick = () => { $('#assign').hidden = true; };
+$('#asave').onclick = async () => {
+  if (busy) return;
+  const d = current, claims = [], releases = [];
+  $('#aklist').querySelectorAll('input:not(:disabled)').forEach(i => {
+    const key = rkey(d.date, d.ev, d.type, i.value), mine = rides[key] === me;
+    if (i.checked && !mine) claims.push(key);
+    if (!i.checked && mine) releases.push(key);
+  });
+  $('#assign').hidden = true;
+  if (!claims.length && !releases.length) return;
+
+  const backup = { ...rides };
+  claims.forEach(k => rides[k] = me); releases.forEach(k => delete rides[k]);
+  render();
+  busy = true;
+  try {
+    const r = await send({ parent: me, claims, releases });
+    if (r.conflicts && r.conflicts.length) {
+      toast('Ktoś był szybszy: ' + r.conflicts.map(c => `${KIDS[c.key.split('|')[3]].name} – ${c.parent}`).join(', '));
+    } else toast('Zapisano ✓');
+  } catch (err) {
+    rides = backup;
+    toast('Nie udało się zapisać – sprawdź internet i spróbuj ponownie.');
+  }
+  busy = false;
+  render();
+};
+
+$('#board').addEventListener('click', e => {
+  const b = e.target.closest('.slot'); if (!b || b.disabled || busy) return;
+  if (!me) { openPicker(); return; }
+  openAssign(b.dataset);
+});
+
+$('#who').onclick = openPicker;
+$('#prev').onclick = () => { monday = addDays(monday, -7); showWeek(true); };
+$('#next').onclick = () => { monday = addDays(monday, 7); showWeek(true); };
+$('#today').onclick = () => { monday = mondayOf(new Date()); showWeek(true); };
+
+$('#legend').innerHTML = Object.values(KIDS).map(k => `<span><span class="dot" style="background:${k.color}"></span>${k.name}</span>`).join('');
+if (!SCRIPT_URL) { $('#banner').textContent = 'Tryb testowy – zapisy widać tylko na tym urządzeniu.'; $('#banner').hidden = false; }
+
+showWeek(true);
+load();
+if (!me) openPicker();
+setInterval(() => { if (!document.hidden && !busy && $('#assign').hidden) load(); }, 60000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden && !busy) load(); });
+</script>
+</body>
+</html>
